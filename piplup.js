@@ -6,12 +6,16 @@ const Geometry = {
         const faces = [];
         for (let i = 0; i <= stack; i++) {
             for (let j = 0; j <= step; j++) {
-                const u = i / stack * Math.PI - (Math.PI / 2);
-                const v = j / step * 2 * Math.PI - Math.PI;
-                const x = a * Math.cos(v) * Math.cos(u);
-                const y = b * Math.sin(u);
-                const z = c * Math.sin(v) * Math.cos(u);
-                vertices.push(x, y, z, color[0], color[1], color[2]);
+                const u = i / stack;
+                const v = j / step;
+                const theta = u * Math.PI;
+                const phi = v * 2 * Math.PI;
+
+                const x = a * Math.sin(theta) * Math.cos(phi);
+                const y = b * Math.cos(theta);
+                const z = c * Math.sin(theta) * Math.sin(phi);
+
+                vertices.push(x, y, z, color[0], color[1], color[2], v, u - 1.0);
             }
         }
         for (let i = 0; i < stack; i++) {
@@ -40,7 +44,7 @@ const Geometry = {
         const faces = [];
 
         // Tip of the beak
-        vertices.push(0, 0, 0, color[0], color[1], color[2]);
+        vertices.push(0, 0, 0, color[0], color[1], color[2], 0, 0);
 
         // Build the beak with circular cross-sections
         for (let i = 1; i <= segments; i++) {
@@ -54,7 +58,7 @@ const Geometry = {
                 const theta = (j / segments) * 2 * Math.PI;
                 const x = width * radiusScale * Math.cos(theta);
                 const y = thickness * radiusScale * Math.sin(theta);
-                vertices.push(x, y, currentZ, color[0], color[1], color[2]);
+                vertices.push(x, y, currentZ, color[0], color[1], color[2], t, j / segments);
             }
         }
 
@@ -140,8 +144,7 @@ const Geometry = {
                 vertices.push(x, y, z);
 
                 // Color
-                vertices.push(color[0], color[1], color[2]);
-                // vertices.push(j / radialSegments, i / splinePoints.length, 0.5); // color
+                vertices.push(color[0], color[1], color[2], j / radialSegments, i / splinePoints.length);
             }
         }
 
@@ -162,9 +165,10 @@ const Geometry = {
 // --- PIPLUP PART CLASS ---
 // Represents a single drawable part of the Piplup model.
 class PiplupPart {
-    constructor(gl, geometry) {
+    constructor(gl, geometry, texture = null) {
         this.gl = gl;
         this.geometry = geometry;
+        this.texture = texture;
         this.modelMatrix = LIBS.get_I4();
         this.buffers = this.createBuffers();
     }
@@ -192,8 +196,19 @@ class PiplupPart {
         gl.uniformMatrix4fv(shader.locations.Mmatrix, false, finalMatrix);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.vertex);
-        gl.vertexAttribPointer(shader.locations.position, 3, gl.FLOAT, false, 4 * 6, 0);
-        gl.vertexAttribPointer(shader.locations.color, 3, gl.FLOAT, false, 4 * 6, 3 * 4);
+        gl.vertexAttribPointer(shader.locations.position, 3, gl.FLOAT, false, 4 * 8, 0);
+        gl.vertexAttribPointer(shader.locations.color, 3, gl.FLOAT, false, 4 * 8, 3 * 4);
+        gl.vertexAttribPointer(shader.locations.texcoord, 2, gl.FLOAT, false, 4 * 8, 6 * 4);
+
+
+        if (this.texture) {
+            gl.activeTexture(gl.TEXTURE0);
+            gl.bindTexture(gl.TEXTURE_2D, this.texture);
+            gl.uniform1i(shader.locations.sampler, 0);
+            gl.uniform1i(shader.locations.u_useTexture, 1);
+        } else {
+            gl.uniform1i(shader.locations.u_useTexture, 0);
+        }
 
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.buffers.faces);
         gl.drawElements(gl.TRIANGLES, this.buffers.faces_length, gl.UNSIGNED_SHORT, 0);
@@ -203,8 +218,9 @@ class PiplupPart {
 // --- PIPLUP CONTAINER CLASS ---
 // Manages all the parts that make up the Piplup.
 class Piplup {
-    constructor(gl) {
+    constructor(gl, renderer) {
         this.gl = gl;
+        this.renderer = renderer;
         this.parts = [];
         this.modelMatrix = LIBS.get_I4(); // This matrix will control the entire Piplup's rotation
         this.initParts();
@@ -227,23 +243,35 @@ class Piplup {
             return m;
         };
 
+        const headTexture = this.renderer.loadTexture("Resource/piplup_head_texture3.png");
+
         // Define parts and their local transformations
         const partDefinitions = [
             // Body
             { geom: Geometry.generateSphere(0.8, 1.1, 1, 20, 20, C.BODY), trans: LIBS.get_I4()},
 
             // Head
-            { geom: Geometry.generateSphere(0.8, 0.8, 0.8, 20, 20, C.HEAD), trans: createTransform(0, 1.5, 0)},
+            {
+                geom: Geometry.generateSphere(0.8, 0.8, 0.8, 20, 20, C.HEAD),
+                trans: createTransform(0, 1.5, 0),
+                texture: headTexture
+            },
 
+            // Eyes
+            { geom: Geometry.generateSphere(0.1, 0.2, 0.1, 10, 10, C.BLACK), trans: createTransform(-0.5, 1.4, 0.60)},
+            { geom: Geometry.generateSphere(0.05, 0.05, 0.05, 10, 10, C.WHITE), trans: createTransform(-0.5, 1.5, 0.65)},
+
+            { geom: Geometry.generateSphere(0.1, 0.2, 0.1, 10, 10, C.BLACK), trans: createTransform(0.5, 1.4, 0.60)},
+            { geom: Geometry.generateSphere(0.05, 0.05, 0.05, 10, 10, C.WHITE), trans: createTransform(0.5, 1.5, 0.65)},
 
             // Beak using the new generateBeak function
             { geom: Geometry.generateBeak(0.3, 0.2, 0.6, 15, C.BEAK), trans: (() => {
-                    let m = createTransform(0, 1.3, 1.1);
+                    let m = createTransform(0, 1.2, 1.2);
                     LIBS.rotateX(m, LIBS.degToRad(15));
                     return m;
                 })()},
             { geom: Geometry.generateBeak(0.25, 0.15, 0.5, 15, C.BEAK), trans: (() => {
-                    let m = createTransform(0, 1.25, 1);
+                    let m = createTransform(0, 1.15, 1.1);
                     LIBS.rotateX(m, LIBS.degToRad(5));
                     return m;
                 })()},
@@ -303,7 +331,7 @@ class Piplup {
         ];
 
         partDefinitions.forEach(def => {
-            const part = new PiplupPart(gl, def.geom);
+            const part = new PiplupPart(gl, def.geom, def.texture);
             part.setTransform(def.trans);
             this.parts.push(part);
         });
@@ -328,7 +356,7 @@ class Renderer {
         if (!this.gl) throw new Error("WebGL not supported");
 
         this.shader = this.createShaderProgram();
-        this.piplup = new Piplup(this.gl);
+        this.piplup = new Piplup(this.gl, this);
 
         this.viewMatrix = LIBS.get_I4();
         LIBS.translateZ(this.viewMatrix, -12);
@@ -343,17 +371,28 @@ class Renderer {
         const vsSource = `
             attribute vec3 position;
             attribute vec3 color;
+            attribute vec2 texcoord;
             uniform mat4 Mmatrix, Vmatrix, Pmatrix;
             varying vec3 vColor;
+            varying vec2 vTexcoord;
             void main(void) {
                 gl_Position = Pmatrix * Vmatrix * Mmatrix * vec4(position, 1.);
                 vColor = color;
+                vTexcoord = texcoord;
             }`;
         const fsSource = `
             precision mediump float;
             varying vec3 vColor;
+            varying vec2 vTexcoord;
+            uniform sampler2D sampler;
+            uniform int u_useTexture;
+
             void main(void) {
-                gl_FragColor = vec4(vColor, 1.);
+                if (u_useTexture == 1) {
+                    gl_FragColor = texture2D(sampler, vTexcoord);
+                } else {
+                    gl_FragColor = vec4(vColor, 1.);
+                }
             }`;
 
         const vs = this.compileShader(vsSource, gl.VERTEX_SHADER);
@@ -369,13 +408,17 @@ class Renderer {
         const locations = {
             position: gl.getAttribLocation(program, "position"),
             color: gl.getAttribLocation(program, "color"),
+            texcoord: gl.getAttribLocation(program, "texcoord"),
             Pmatrix: gl.getUniformLocation(program, "Pmatrix"),
             Vmatrix: gl.getUniformLocation(program, "Vmatrix"),
-            Mmatrix: gl.getUniformLocation(program, "Mmatrix")
+            Mmatrix: gl.getUniformLocation(program, "Mmatrix"),
+            sampler: gl.getUniformLocation(program, "sampler"),
+            u_useTexture: gl.getUniformLocation(program, "u_useTexture")
         };
 
         gl.enableVertexAttribArray(locations.position);
         gl.enableVertexAttribArray(locations.color);
+        gl.enableVertexAttribArray(locations.texcoord);
 
         return { program, locations };
     }
@@ -389,6 +432,25 @@ class Renderer {
             throw new Error("Shader compile error: " + gl.getShaderInfoLog(shader));
         }
         return shader;
+    }
+
+    loadTexture(url) {
+        const gl = this.gl;
+        const texture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+
+        // Placeholder pixel
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 255, 255]));
+
+        const image = new Image();
+        image.onload = function () {
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+            gl.generateMipmap(gl.TEXTURE_2D);
+        };
+        image.src = url;
+
+        return texture;
     }
 
     initInputHandlers() {
