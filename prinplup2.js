@@ -39,35 +39,6 @@ const Geometry = {
      * @param {Array<number>} color - The RGB color array.
      * @returns {{vertices: Array<number>, faces: Array<number>}}
      */
-    generateCircle: function(radius, segments, color) {
-        const vertices = [];
-        const faces = [];
-        // Add the center vertex at (0, 0, 0)
-        // Vertex format: x, y, z, r, g, b, u, v
-        vertices.push(0, 0, 0, color[0], color[1], color[2], 0.5, 0.5);
-
-        // Add vertices for the circumference
-        for (let i = 0; i <= segments; i++) {
-            const theta = (i / segments) * 2 * Math.PI;
-            const x = radius * Math.cos(theta);
-            const y = radius * Math.sin(theta);
-            
-            // Texture coordinates (map circular coords to square UV space)
-            const u = (x / radius + 1) / 2;
-            const v = (y / radius + 1) / 2;
-
-            vertices.push(x, y, 0, color[0], color[1], color[2], u, v);
-        }
-        // Create the faces using the center vertex (index 0)
-        for (let i = 1; i <= segments; i++) {
-            const centerIndex = 0;
-            const currentIndex = i;
-            const nextIndex = i + 1;
-            faces.push(centerIndex, currentIndex, nextIndex);
-        }
-        return { vertices, faces };
-    },
-
     generateBeak: function(width, thickness, length, segments, color) {
         const vertices = [];
         const faces = [];
@@ -188,7 +159,127 @@ const Geometry = {
             }
         }
         return { vertices, faces };
-    }
+    },
+
+    generateTaperedShapeFromSpline: function(controlPoints, segments, startRadii, endRadii, radialSegments, color) {
+        var vertices = [];
+        var faces = [];
+        var splinePoints = [];
+        var tangents = [];
+
+        // --- Spline Calculation (same as your existing function) ---
+        var points = [];
+        points.push(controlPoints[0]);
+        controlPoints.forEach(p => points.push(p));
+        points.push(controlPoints[controlPoints.length - 1]);
+
+        for (var i = 1; i < points.length - 2; i++) {
+            var p0 = points[i - 1];
+            var p1 = points[i];
+            var p2 = points[i + 1];
+            var p3 = points[i + 2];
+
+            for (var j = 0; j <= segments; j++) {
+                var t = j / segments;
+                var t2 = t * t;
+                var t3 = t2 * t;
+
+                var x = 0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3);
+                var y = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
+                var z = 0.5 * ((2 * p1[2]) + (-p0[2] + p2[2]) * t + (2 * p0[2] - 5 * p1[2] + 4 * p2[2] - p3[2]) * t2 + (-p0[2] + 3 * p1[2] - 3 * p2[2] + p3[2]) * t3);
+                splinePoints.push([x, y, z]);
+
+                var tx = 0.5 * ((-p0[0] + p2[0]) + 2 * (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t + 3 * (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t2);
+                var ty = 0.5 * ((-p0[1] + p2[1]) + 2 * (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t + 3 * (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t2);
+                var tz = 0.5 * ((-p0[2] + p2[2]) + 2 * (2 * p0[2] - 5 * p1[2] + 4 * p2[2] - p3[2]) * t + 3 * (-p0[2] + 3 * p1[2] - 3 * p2[2] + p3[2]) * t2);
+
+                var mag = Math.sqrt(tx * tx + ty * ty + tz * tz);
+                tangents.push([tx / mag, ty / mag, tz / mag]);
+            }
+        }
+
+        // --- Mesh Generation (modified for tapering) ---
+        var up = [0, 1, 0];
+        for (var i = 0; i < splinePoints.length; i++) {
+            var t = i / (splinePoints.length - 1); // Interpolation factor (0 to 1)
+
+            // Interpolate radii for tapering effect
+            var currentRadiusX = startRadii[0] * (1 - t) + endRadii[0] * t;
+            var currentRadiusY = startRadii[1] * (1 - t) + endRadii[1] * t;
+
+            var point = splinePoints[i];
+            var tangent = tangents[i];
+
+            if (Math.abs(tangent[1]) > 0.999) { up = [1, 0, 0]; }
+            else { up = [0, 1, 0]; }
+
+            var normal = [tangent[1] * up[2] - tangent[2] * up[1], tangent[2] * up[0] - tangent[0] * up[2], tangent[0] * up[1] - tangent[1] * up[0]];
+            var magN = Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+            normal = [normal[0] / magN, normal[1] / magN, normal[2] / magN];
+
+            var binormal = [tangent[1] * normal[2] - tangent[2] * normal[1], tangent[2] * normal[0] - tangent[0] * normal[2], tangent[0] * normal[1] - tangent[1] * normal[0]];
+
+            for (var j = 0; j <= radialSegments; j++) {
+                var theta = (j / radialSegments) * 2 * Math.PI;
+                // Use different radii for X and Y to create a flattened (elliptical) shape
+                var x = point[0] + (currentRadiusX * Math.cos(theta) * normal[0] + currentRadiusY * Math.sin(theta) * binormal[0]);
+                var y = point[1] + (currentRadiusX * Math.cos(theta) * normal[1] + currentRadiusY * Math.sin(theta) * binormal[1]);
+                var z = point[2] + (currentRadiusX * Math.cos(theta) * normal[2] + currentRadiusY * Math.sin(theta) * binormal[2]);
+                vertices.push(x, y, z, color[0], color[1], color[2], j/radialSegments, i/splinePoints.length);
+            }
+        }
+
+        for (var i = 0; i < splinePoints.length - 1; i++) {
+            for (var j = 0; j < radialSegments; j++) {
+                var p1 = i * (radialSegments + 1) + j;
+                var p2 = p1 + 1;
+                var p3 = (i + 1) * (radialSegments + 1) + j;
+                var p4 = p3 + 1;
+                faces.push(p1, p2, p4);
+                faces.push(p1, p4, p3);
+            }
+        }
+        return { vertices, faces };
+    },
+
+    generateLathe: function(points, segments, color) {
+        const vertices = [];
+        const faces = [];
+        const phi_step = 2 * Math.PI / segments;
+
+        // Generate vertices
+        for (let i = 0; i <= segments; i++) {
+            const phi = i * phi_step;
+            const sin_phi = Math.sin(phi);
+            const cos_phi = Math.cos(phi);
+
+            for (let j = 0; j < points.length; j++) {
+                const x = points[j][0] * cos_phi;
+                const y = points[j][1];
+                const z = points[j][0] * sin_phi;
+
+                // UV coordinates
+                const u = i / segments;
+                const v = j / (points.length - 1);
+
+                vertices.push(x, y, z, color[0], color[1], color[2], u, v);
+            }
+        }
+
+        // Generate faces
+        for (let i = 0; i < segments; i++) {
+            for (let j = 0; j < points.length - 1; j++) {
+                const p1 = i * points.length + j;
+                const p2 = p1 + points.length;
+                const p3 = p1 + 1;
+                const p4 = p2 + 1;
+
+                faces.push(p1, p2, p4, p1, p4, p3);
+            }
+        }
+
+        return { vertices, faces };
+    },
 };
 
 // --- PIPLUP PART CLASS ---
@@ -260,7 +351,7 @@ class Piplup {
         // Piplup Colors
         const C = {
             BODY: [0.52, 0.80, 1.00], HEAD: [0.20, 0.38, 0.64], BEAK: [1.00, 0.84, 0.00], CAPE: [0.24, 0.42, 0.96],
-            EYE_W: [1.00, 1.00, 1.00], BLACK: [0.00, 0.00, 0.00], FEET: [1.00, 0.65, 0.00], WHITE: [1.00, 1.00, 1.00]
+            EYE_W: [1.00, 1.00, 1.00], BLACK: [0.00, 0.00, 0.00], FEET: [1.00, 0.65, 0.00], WHITE: [1.00, 1.00, 1.00], TAIL: [0.08, 0.32, 0.60]
         };
 
         // Helper function to create a translation matrix using your libs.js functions
@@ -272,132 +363,96 @@ class Piplup {
             return m;
         };
 
-        const createOrientedTransform = (radX, radY, radZ, x, y) => {
-            // A. Calculate the precise 'z' on the surface
-            const termX = (x * x) / (radX * radX);
-            const termY = (y * y) / (radY * radY);
-            const z_on_surface = radZ * Math.sqrt(1.0 - termX - termY);
+        const headTexture = this.renderer.loadTexture("Resource/prinplup_texture.png");
 
-            // Add a tiny offset to prevent clipping
-            const z_final = z_on_surface + 0.01;
+        // First, define the 2D profile for the bean shape
+        // const body_profile = [
+        //     [0.0, 1.9, 0],
+        //     // [0.1, 1.95, 0],
+        //     [0.25, 1.9, 0],
+        //     [0.4, 1.8, 0],
+        //     [0.5, 1.6, 0],
+        //     [0.52, 1.4, 0],
+        //     [0.54, 1.2, 0],   // Top point (neck)
+        //     [0.6, 0.9, 0],
+        //     [0.8, 0.4, 0],
+        //     [0.95, -0.1, 0],   // Widest part of the belly
+        //     [0.9, -0.5, 0],
+        //     [0.6, -0.9, 0],
+        //     // [0.45, -1.1, 0],
+        //     [0.0, -1.1, 0]   // Bottom point
+        // ];
 
-            // B. Calculate rotation angles to match the surface curve
-            const angleY = Math.atan2(x, z_final);
-            const angleX = -Math.atan2(y, z_final);
-
-            // C. Build the transformation matrix
-            const m = LIBS.get_I4(); // Start with a fresh identity matrix
-
-            // Apply rotations (order matters: Y-axis first, then X-axis)
-            LIBS.rotateY(m, angleY);
-            LIBS.rotateX(m, angleX);
-
-            // Apply the final position
-            LIBS.set_position(m, x, y, z_final);
-
-            return m; // Return the finished matrix
-        };
-
-        const headTexture = this.renderer.loadTexture("Resource/piplup_head_texture3.png");
+        const body_profile = [
+            [0.0, 1.95, 0],
+            [0.0, 1.95, 0],
+            [0.15, 1.95, 0],
+            [0.3, 1.9, 0],
+            [0.4, 1.8, 0],
+            [0.475, 1.7, 0],
+            [0.5, 1.6, 0],
+            [0.525, 1.5, 0],
+            [0.53, 1.4, 0],
+            [0.535, 1.3, 0],
+            [0.55, 1.2, 0],   // Top point (neck)
+            [0.57, 1.1, 0],
+            [0.59, 1.0, 0],
+            [0.62, 0.9, 0],
+            [0.65, 0.8, 0],
+            [0.7, 0.7, 0],
+            [0.75, 0.6, 0],
+            [0.8, 0.5, 0],
+            [0.85, 0.4, 0],
+            [0.9, 0.3, 0],
+            [0.95, 0.2, 0],
+            [0.98, 0.1, 0],
+            [1, 0, 0],
+            [1, -0.1, 0],   // Widest part of the belly
+            [1, -0.2, 0],
+            [0.975, -0.3, 0],
+            [0.95, -0.4, 0],
+            [0.9, -0.5, 0],
+            [0.85, -0.6, 0],
+            [0.75, -0.7, 0],
+            [0.55, -0.8, 0],
+            [0.0, -0.9, 0],   // Bottom point
+        ];
 
         // Define parts and their local transformations
         const partDefinitions = [
-            // Body
-            { geom: Geometry.generateSphere(0.8, 0.9, 0.8, 20, 20, C.BODY), trans: LIBS.get_I4()},
-            { geom: Geometry.generateCircle(0.2, 20, C.WHITE), trans: createOrientedTransform(0.8, 1.1, 0.78, -0.3, 0.25)},
-            { geom: Geometry.generateCircle(0.2, 20, C.WHITE), trans: createOrientedTransform(0.8, 1.1, 0.78, 0.3, 0.25)},
-
-            // Head
+            // NEW Prinplup Body
             {
-                geom: Geometry.generateSphere(0.8, 0.8, 0.8, 20, 20, C.HEAD),
-                trans: createTransform(0, 1.5, 0),
+                geom: Geometry.generateLathe(body_profile, 30, C.BODY),
+                trans: (() => {
+                    const m = createTransform(0, 0.2, 0);
+                    LIBS.rotateY(m, Math.PI / 2);
+                    LIBS.scale(m, 1.2);
+                    return m
+                })(), // Slightly raise the body
                 texture: headTexture
             },
 
-            // Eyes
-            { geom: Geometry.generateSphere(0.1, 0.2, 0.1, 10, 10, C.BLACK), trans: createTransform(-0.5, 1.4, 0.60)},
-            { geom: Geometry.generateSphere(0.05, 0.05, 0.05, 10, 10, C.WHITE), trans: createTransform(-0.5, 1.5, 0.65)},
-
-            { geom: Geometry.generateSphere(0.1, 0.2, 0.1, 10, 10, C.BLACK), trans: createTransform(0.5, 1.4, 0.60)},
-            { geom: Geometry.generateSphere(0.05, 0.05, 0.05, 10, 10, C.WHITE), trans: createTransform(0.5, 1.5, 0.65)},
-
-            // Beak using the new generateBeak function
-            { geom: Geometry.generateBeak(0.3, 0.2, 0.6, 15, C.BEAK), trans: (() => {
-                    let m = createTransform(0, 1.2, 1.2);
-                    LIBS.rotateX(m, LIBS.degToRad(15));
-                    return m;
-                })()},
-            { geom: Geometry.generateBeak(0.25, 0.15, 0.5, 15, C.BEAK), trans: (() => {
-                    let m = createTransform(0, 1.15, 1.1);
-                    LIBS.rotateX(m, LIBS.degToRad(5));
-                    return m;
-                })()},
-            // Feet
-            { geom: Geometry.generateSphere(0.25, 0.15, 0.5, 10, 10, C.FEET), trans: createTransform(-0.4, -1.0, 0.4)},
-            { geom: Geometry.generateSphere(0.25, 0.15, 0.5, 10, 10, C.FEET), trans: createTransform(0.4, -1.0, 0.4)},
-            // Legs (Body-Feet)
-            { geom: Geometry.generateSphere(0.25, 0.5, 0.25, 10, 10, C.BODY), trans: createTransform(-0.4, -0.5, 0.2)},
-            { geom: Geometry.generateSphere(0.25, 0.5, 0.25, 10, 10, C.BODY), trans: createTransform(0.4, -0.5, 0.2)},
-            // Hands (Flippers)
-            { geom: Geometry.generateSphere(0.2, 0.7, 0.5, 15, 15, C.BODY), trans: (() => {
-                    let m = createTransform(-0.8, 0.1, 0.1);
-                    LIBS.rotateZ(m, LIBS.degToRad(-20));
-                    LIBS.rotateX(m, LIBS.degToRad(-10));
-                    return m;
-                })()},
-            { geom: Geometry.generateSphere(0.2, 0.7, 0.5, 15, 15, C.BODY), trans: (() => {
-                    let m = createTransform(0.8, 0.1, 0.1);
-                    LIBS.rotateZ(m, LIBS.degToRad(20));
-                    LIBS.rotateX(m, LIBS.degToRad(-10));
-                    return m;
-                })()},
-            // Cape
-            { geom: Geometry.generateTubeFromSpline(
-                    // Define control points for the curve's path
+            {
+                geom: Geometry.generateTaperedShapeFromSpline(
+                    // Control points define the curve's path from base to tip
                     [
-                        [0.0, 0.0, -0.5],   // Start point on the lower back
-                        [0.0, 0.05, -1.5],
-                        [0.0, -0.2, -1.3], // First curve point
-                        [0.0, -0.4, -1.8],  // Second curve point
-                        [0.0, -0.7, -1.5]   // End point, slightly flared out
+                        [0.0, -0, -0.2],  // Start point on the lower back
+                        [0.0, -0.9, -1.2],  // Mid-point, curving down and back
+                        [0.0, -1.2, -2.0]   // End point, the tip of the tail
                     ],
-                    100, // Segments for smoothness
-                    0.15, // Radius of the tube (thickness of the cape)
+                    50,   // Segments for a smooth curve
+                    [0.9, 0.6],  // Start Radii [thickness, width] - wide and flat at the base
+                    [0.01, 0.01], // End Radii [thickness, width] - narrow and thin at the tip
                     20,   // Radial segments
-                    [0.20, 0.38, 0.64], // Color
+                    C.TAIL // Using the head color for the tail
                 ),
-                // We don't need a separate transform since the points are in world space relative to the body
-                trans: createTransform(0, 0, 0.5)},
-            { geom: Geometry.generateSphere(0.5, 0.2, 0.4, 20, 20, C.HEAD), trans: (() => {
-                    let m = createTransform(0.3, 0.8, 0.4);
-                    LIBS.rotateY(m, LIBS.degToRad(-60));
-                    LIBS.rotateZ(m, LIBS.degToRad(-30));
-                    return m;
-                })()},
-            { geom: Geometry.generateSphere(0.5, 0.2, 0.4, 20, 20, C.HEAD), trans: (() => {
-                    let m = createTransform(-0.3, 0.8, 0.4);
-                    // LIBS.rotateX(m, LIBS.degToRad(60))
-                    LIBS.rotateY(m, LIBS.degToRad(60));
-                    LIBS.rotateZ(m, LIBS.degToRad(30));
-                    return m;
-                })()},
-            // Circle cape in neck
-            { geom: Geometry.generateSphere(0.7, 0.12, 0.6, 20, 20, C.HEAD), trans: (() => {
-                    let m = createTransform(0, 0.8, 0);
-                    // LIBS.rotateX(m, LIBS.degToRad(60))
-                    // LIBS.rotateY(m, LIBS.degToRad(60));
-                    // LIBS.rotateZ(m, LIBS.degToRad(30));
-                    return m;
-                })()},
-            { geom: Geometry.generateSphere(1, 1.1, 0.25, 20, 20, C.HEAD), trans: (() => {
-                    let m = createTransform(0, 0, -0.7);
-                    LIBS.rotateX(m, LIBS.degToRad(20))
-                    // LIBS.rotateY(m, LIBS.degToRad(60));
-                    // LIBS.rotateZ(m, LIBS.degToRad(30));
-                    return m;
-                })()},
-        ];
-
+                trans: (() => {
+                    const m = createTransform(0, 0.6, 0.1);
+                    // LIBS.scale(m, 1.2);
+                    return m
+                })(), // No transformation needed, points are in world space
+            }
+        ]
         partDefinitions.forEach(def => {
             const part = new PiplupPart(gl, def.geom, def.texture);
             part.setTransform(def.trans);
@@ -427,8 +482,9 @@ class Renderer {
         this.piplup = new Piplup(this.gl, this);
 
         this.viewMatrix = LIBS.get_I4();
-        LIBS.translateZ(this.viewMatrix, -15);
-        this.projMatrix = LIBS.get_projection(20, this.canvas.width / this.canvas.height, 1, 100);
+        LIBS.translateZ(this.viewMatrix, -9);
+        // LIBS.rotateY(this.viewMatrix, Math.PI / 2);
+        this.projMatrix = LIBS.get_projection(40, this.canvas.width / this.canvas.height, 1, 100);
 
         this.initInputHandlers();
         this.startRenderLoop();

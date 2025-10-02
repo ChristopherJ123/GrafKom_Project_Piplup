@@ -39,35 +39,6 @@ const Geometry = {
      * @param {Array<number>} color - The RGB color array.
      * @returns {{vertices: Array<number>, faces: Array<number>}}
      */
-    generateCircle: function(radius, segments, color) {
-        const vertices = [];
-        const faces = [];
-        // Add the center vertex at (0, 0, 0)
-        // Vertex format: x, y, z, r, g, b, u, v
-        vertices.push(0, 0, 0, color[0], color[1], color[2], 0.5, 0.5);
-
-        // Add vertices for the circumference
-        for (let i = 0; i <= segments; i++) {
-            const theta = (i / segments) * 2 * Math.PI;
-            const x = radius * Math.cos(theta);
-            const y = radius * Math.sin(theta);
-            
-            // Texture coordinates (map circular coords to square UV space)
-            const u = (x / radius + 1) / 2;
-            const v = (y / radius + 1) / 2;
-
-            vertices.push(x, y, 0, color[0], color[1], color[2], u, v);
-        }
-        // Create the faces using the center vertex (index 0)
-        for (let i = 1; i <= segments; i++) {
-            const centerIndex = 0;
-            const currentIndex = i;
-            const nextIndex = i + 1;
-            faces.push(centerIndex, currentIndex, nextIndex);
-        }
-        return { vertices, faces };
-    },
-
     generateBeak: function(width, thickness, length, segments, color) {
         const vertices = [];
         const faces = [];
@@ -188,6 +159,87 @@ const Geometry = {
             }
         }
         return { vertices, faces };
+    },
+
+    generateTaperedShapeFromSpline: function(controlPoints, segments, startRadii, endRadii, radialSegments, color) {
+        var vertices = [];
+        var faces = [];
+        var splinePoints = [];
+        var tangents = [];
+
+        // --- Spline Calculation (same as your existing function) ---
+        var points = [];
+        points.push(controlPoints[0]);
+        controlPoints.forEach(p => points.push(p));
+        points.push(controlPoints[controlPoints.length - 1]);
+
+        for (var i = 1; i < points.length - 2; i++) {
+            var p0 = points[i - 1];
+            var p1 = points[i];
+            var p2 = points[i + 1];
+            var p3 = points[i + 2];
+
+            for (var j = 0; j <= segments; j++) {
+                var t = j / segments;
+                var t2 = t * t;
+                var t3 = t2 * t;
+
+                var x = 0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3);
+                var y = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
+                var z = 0.5 * ((2 * p1[2]) + (-p0[2] + p2[2]) * t + (2 * p0[2] - 5 * p1[2] + 4 * p2[2] - p3[2]) * t2 + (-p0[2] + 3 * p1[2] - 3 * p2[2] + p3[2]) * t3);
+                splinePoints.push([x, y, z]);
+
+                var tx = 0.5 * ((-p0[0] + p2[0]) + 2 * (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t + 3 * (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t2);
+                var ty = 0.5 * ((-p0[1] + p2[1]) + 2 * (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t + 3 * (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t2);
+                var tz = 0.5 * ((-p0[2] + p2[2]) + 2 * (2 * p0[2] - 5 * p1[2] + 4 * p2[2] - p3[2]) * t + 3 * (-p0[2] + 3 * p1[2] - 3 * p2[2] + p3[2]) * t2);
+
+                var mag = Math.sqrt(tx * tx + ty * ty + tz * tz);
+                tangents.push([tx / mag, ty / mag, tz / mag]);
+            }
+        }
+
+        // --- Mesh Generation (modified for tapering) ---
+        var up = [0, 1, 0];
+        for (var i = 0; i < splinePoints.length; i++) {
+            var t = i / (splinePoints.length - 1); // Interpolation factor (0 to 1)
+
+            // Interpolate radii for tapering effect
+            var currentRadiusX = startRadii[0] * (1 - t) + endRadii[0] * t;
+            var currentRadiusY = startRadii[1] * (1 - t) + endRadii[1] * t;
+
+            var point = splinePoints[i];
+            var tangent = tangents[i];
+
+            if (Math.abs(tangent[1]) > 0.999) { up = [1, 0, 0]; }
+            else { up = [0, 1, 0]; }
+
+            var normal = [tangent[1] * up[2] - tangent[2] * up[1], tangent[2] * up[0] - tangent[0] * up[2], tangent[0] * up[1] - tangent[1] * up[0]];
+            var magN = Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+            normal = [normal[0] / magN, normal[1] / magN, normal[2] / magN];
+
+            var binormal = [tangent[1] * normal[2] - tangent[2] * normal[1], tangent[2] * normal[0] - tangent[0] * normal[2], tangent[0] * normal[1] - tangent[1] * normal[0]];
+
+            for (var j = 0; j <= radialSegments; j++) {
+                var theta = (j / radialSegments) * 2 * Math.PI;
+                // Use different radii for X and Y to create a flattened (elliptical) shape
+                var x = point[0] + (currentRadiusX * Math.cos(theta) * normal[0] + currentRadiusY * Math.sin(theta) * binormal[0]);
+                var y = point[1] + (currentRadiusX * Math.cos(theta) * normal[1] + currentRadiusY * Math.sin(theta) * binormal[1]);
+                var z = point[2] + (currentRadiusX * Math.cos(theta) * normal[2] + currentRadiusY * Math.sin(theta) * binormal[2]);
+                vertices.push(x, y, z, color[0], color[1], color[2], j/radialSegments, i/splinePoints.length);
+            }
+        }
+
+        for (var i = 0; i < splinePoints.length - 1; i++) {
+            for (var j = 0; j < radialSegments; j++) {
+                var p1 = i * (radialSegments + 1) + j;
+                var p2 = p1 + 1;
+                var p3 = (i + 1) * (radialSegments + 1) + j;
+                var p4 = p3 + 1;
+                faces.push(p1, p2, p4);
+                faces.push(p1, p4, p3);
+            }
+        }
+        return { vertices, faces };
     }
 };
 
@@ -272,40 +324,12 @@ class Piplup {
             return m;
         };
 
-        const createOrientedTransform = (radX, radY, radZ, x, y) => {
-            // A. Calculate the precise 'z' on the surface
-            const termX = (x * x) / (radX * radX);
-            const termY = (y * y) / (radY * radY);
-            const z_on_surface = radZ * Math.sqrt(1.0 - termX - termY);
-
-            // Add a tiny offset to prevent clipping
-            const z_final = z_on_surface + 0.01;
-
-            // B. Calculate rotation angles to match the surface curve
-            const angleY = Math.atan2(x, z_final);
-            const angleX = -Math.atan2(y, z_final);
-
-            // C. Build the transformation matrix
-            const m = LIBS.get_I4(); // Start with a fresh identity matrix
-
-            // Apply rotations (order matters: Y-axis first, then X-axis)
-            LIBS.rotateY(m, angleY);
-            LIBS.rotateX(m, angleX);
-
-            // Apply the final position
-            LIBS.set_position(m, x, y, z_final);
-
-            return m; // Return the finished matrix
-        };
-
         const headTexture = this.renderer.loadTexture("Resource/piplup_head_texture3.png");
 
         // Define parts and their local transformations
         const partDefinitions = [
             // Body
-            { geom: Geometry.generateSphere(0.8, 0.9, 0.8, 20, 20, C.BODY), trans: LIBS.get_I4()},
-            { geom: Geometry.generateCircle(0.2, 20, C.WHITE), trans: createOrientedTransform(0.8, 1.1, 0.78, -0.3, 0.25)},
-            { geom: Geometry.generateCircle(0.2, 20, C.WHITE), trans: createOrientedTransform(0.8, 1.1, 0.78, 0.3, 0.25)},
+            { geom: Geometry.generateSphere(0.8, 1.1, 1, 20, 20, C.BODY), trans: LIBS.get_I4()},
 
             // Head
             {
@@ -333,20 +357,17 @@ class Piplup {
                     return m;
                 })()},
             // Feet
-            { geom: Geometry.generateSphere(0.25, 0.15, 0.5, 10, 10, C.FEET), trans: createTransform(-0.4, -1.0, 0.4)},
-            { geom: Geometry.generateSphere(0.25, 0.15, 0.5, 10, 10, C.FEET), trans: createTransform(0.4, -1.0, 0.4)},
-            // Legs (Body-Feet)
-            { geom: Geometry.generateSphere(0.25, 0.5, 0.25, 10, 10, C.BODY), trans: createTransform(-0.4, -0.5, 0.2)},
-            { geom: Geometry.generateSphere(0.25, 0.5, 0.25, 10, 10, C.BODY), trans: createTransform(0.4, -0.5, 0.2)},
+            { geom: Geometry.generateSphere(0.4, 0.15, 0.5, 10, 10, C.FEET), trans: createTransform(-0.5, -1.2, 0.2)},
+            { geom: Geometry.generateSphere(0.4, 0.15, 0.5, 10, 10, C.FEET), trans: createTransform(0.5, -1.2, 0.2)},
             // Hands (Flippers)
             { geom: Geometry.generateSphere(0.2, 0.7, 0.5, 15, 15, C.BODY), trans: (() => {
-                    let m = createTransform(-0.8, 0.1, 0.1);
+                    let m = createTransform(-0.9, 0.3, -0.2);
                     LIBS.rotateZ(m, LIBS.degToRad(-20));
                     LIBS.rotateX(m, LIBS.degToRad(-10));
                     return m;
                 })()},
             { geom: Geometry.generateSphere(0.2, 0.7, 0.5, 15, 15, C.BODY), trans: (() => {
-                    let m = createTransform(0.8, 0.1, 0.1);
+                    let m = createTransform(0.9, 0.3, -0.2);
                     LIBS.rotateZ(m, LIBS.degToRad(20));
                     LIBS.rotateX(m, LIBS.degToRad(-10));
                     return m;
@@ -355,10 +376,10 @@ class Piplup {
             { geom: Geometry.generateTubeFromSpline(
                     // Define control points for the curve's path
                     [
-                        [0.0, 0.0, -0.5],   // Start point on the lower back
-                        [0.0, 0.05, -1.5],
+                        [0.0, 0.0, -0.9],   // Start point on the lower back
+                        [0.0, 0.05, -1.8],
                         [0.0, -0.2, -1.3], // First curve point
-                        [0.0, -0.4, -1.8],  // Second curve point
+                        [0.0, -0.4, -2.0],  // Second curve point
                         [0.0, -0.7, -1.5]   // End point, slightly flared out
                     ],
                     100, // Segments for smoothness
@@ -368,29 +389,21 @@ class Piplup {
                 ),
                 // We don't need a separate transform since the points are in world space relative to the body
                 trans: createTransform(0, 0, 0.5)},
-            { geom: Geometry.generateSphere(0.5, 0.2, 0.4, 20, 20, C.HEAD), trans: (() => {
+            { geom: Geometry.generateSphere(0.7, 0.3, 0.6, 20, 20, C.HEAD), trans: (() => {
                     let m = createTransform(0.3, 0.8, 0.4);
                     LIBS.rotateY(m, LIBS.degToRad(-60));
                     LIBS.rotateZ(m, LIBS.degToRad(-30));
                     return m;
                 })()},
-            { geom: Geometry.generateSphere(0.5, 0.2, 0.4, 20, 20, C.HEAD), trans: (() => {
+            { geom: Geometry.generateSphere(0.7, 0.3, 0.6, 20, 20, C.HEAD), trans: (() => {
                     let m = createTransform(-0.3, 0.8, 0.4);
                     // LIBS.rotateX(m, LIBS.degToRad(60))
                     LIBS.rotateY(m, LIBS.degToRad(60));
                     LIBS.rotateZ(m, LIBS.degToRad(30));
                     return m;
                 })()},
-            // Circle cape in neck
-            { geom: Geometry.generateSphere(0.7, 0.12, 0.6, 20, 20, C.HEAD), trans: (() => {
-                    let m = createTransform(0, 0.8, 0);
-                    // LIBS.rotateX(m, LIBS.degToRad(60))
-                    // LIBS.rotateY(m, LIBS.degToRad(60));
-                    // LIBS.rotateZ(m, LIBS.degToRad(30));
-                    return m;
-                })()},
-            { geom: Geometry.generateSphere(1, 1.1, 0.25, 20, 20, C.HEAD), trans: (() => {
-                    let m = createTransform(0, 0, -0.7);
+            { geom: Geometry.generateSphere(1, 1.2, 0.4, 20, 20, C.HEAD), trans: (() => {
+                    let m = createTransform(0, 0.1, -0.7);
                     LIBS.rotateX(m, LIBS.degToRad(20))
                     // LIBS.rotateY(m, LIBS.degToRad(60));
                     // LIBS.rotateZ(m, LIBS.degToRad(30));
@@ -427,8 +440,8 @@ class Renderer {
         this.piplup = new Piplup(this.gl, this);
 
         this.viewMatrix = LIBS.get_I4();
-        LIBS.translateZ(this.viewMatrix, -15);
-        this.projMatrix = LIBS.get_projection(20, this.canvas.width / this.canvas.height, 1, 100);
+        LIBS.translateZ(this.viewMatrix, -12);
+        this.projMatrix = LIBS.get_projection(40, this.canvas.width / this.canvas.height, 1, 100);
 
         this.initInputHandlers();
         this.startRenderLoop();
