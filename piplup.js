@@ -298,7 +298,7 @@ class Piplup {
             return m; // Return the finished matrix
         };
 
-        const headTexture = this.renderer.loadTexture("Resource/piplup_head_texture4.png");
+        const headTexture = this.renderer.loadTexture("Resource/piplup_head_texture.png");
 
         // Define parts and their local transformations
         const partDefinitions = [
