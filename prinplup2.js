@@ -364,6 +364,7 @@ class Piplup {
         };
 
         const headTexture = this.renderer.loadTexture("Resource/prinplup_texture.png");
+        const handTexture = this.renderer.loadTexture("Resource/prinplup_hand_texture.png");
 
         // First, define the 2D profile for the bean shape
         // const body_profile = [
@@ -430,6 +431,27 @@ class Piplup {
                     return m
                 })(), // Slightly raise the body
                 texture: headTexture
+            },
+
+            // Hands
+            { geom: Geometry.generateSphere(0.2, 1, 0.5, 15, 15, C.TAIL),
+                trans: (() => {
+                    let m = createTransform(-1.2, 0.6, 0.1);
+                    LIBS.rotateZ(m, LIBS.degToRad(-40));
+                    LIBS.rotateX(m, LIBS.degToRad(-10));
+                    return m;
+                })(),
+                texture: handTexture
+            },
+
+            { geom: Geometry.generateSphere(0.2, 1, 0.5, 15, 15, C.TAIL),
+                trans: (() => {
+                    let m = createTransform(1.2, 0.6, 0.1);
+                    LIBS.rotateZ(m, LIBS.degToRad(40));
+                    LIBS.rotateX(m, LIBS.degToRad(-10));
+                    return m;
+                })(),
+                texture: handTexture
             },
 
             {

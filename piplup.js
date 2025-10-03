@@ -298,7 +298,7 @@ class Piplup {
             return m; // Return the finished matrix
         };
 
-        const headTexture = this.renderer.loadTexture("Resource/piplup_head_texture3.png");
+        const headTexture = this.renderer.loadTexture("Resource/piplup_head_texture4.png");
 
         // Define parts and their local transformations
         const partDefinitions = [
@@ -310,7 +310,11 @@ class Piplup {
             // Head
             {
                 geom: Geometry.generateSphere(0.8, 0.8, 0.8, 20, 20, C.HEAD),
-                trans: createTransform(0, 1.5, 0),
+                trans: (() => {
+                    const m = createTransform(0, 1.5, 0)
+                    LIBS.rotateY(m, Math.PI / 2);
+                    return m;
+                })(),
                 texture: headTexture
             },
 
