@@ -30,6 +30,101 @@ const Geometry = {
         return { vertices, faces };
     },
 
+    generateHalfEllipsoid: function (a, b, c, stack, step, color, hemisphere = 'upper') {
+        const vertices = [];
+        const faces = [];
+        
+        // Ellipsoid: x²/a² + y²/b² + z²/c² = 1
+        // Parametric form:
+        // x = a * sin(theta) * cos(phi)
+        // y = b * cos(theta)
+        // z = c * sin(theta) * sin(phi)
+        // where theta ∈ [0, π/2] for upper half, [π/2, π] for lower half
+        // and phi ∈ [0, 2π]
+        
+        for (let i = 0; i <= stack; i++) {
+            for (let j = 0; j <= step; j++) {
+                const u = i / stack;
+                const v = j / step;
+                
+                // Untuk setengah ellipsoid atas: theta dari 0 sampai π/2
+                // Untuk setengah ellipsoid bawah: theta dari π/2 sampai π
+                let theta;
+                if (hemisphere === 'upper') {
+                    theta = u * (Math.PI / 2); // 0 to π/2 (upper half)
+                } else if (hemisphere === 'lower') {
+                    theta = (Math.PI / 2) + u * (Math.PI / 2); // π/2 to π (lower half)
+                } else {
+                    theta = u * Math.PI; // full ellipsoid
+                }
+                
+                const phi = v * 2 * Math.PI; // Full rotation 0 to 2π
+                
+                // Ellipsoid parametric equations
+                const x = a * Math.sin(theta) * Math.cos(phi);
+                const y = b * Math.cos(theta);
+                const z = c * Math.sin(theta) * Math.sin(phi);
+                
+                vertices.push(x, y, z, color[0], color[1], color[2], v, u);
+            }
+        }
+        
+        // Generate faces
+        for (let i = 0; i < stack; i++) {
+            for (let j = 0; j < step; j++) {
+                const p1 = i * (step + 1) + j;
+                const p2 = p1 + 1;
+                const p3 = p1 + (step + 1);
+                const p4 = p3 + 1;
+                faces.push(p1, p2, p4, p1, p4, p3);
+            }
+        }
+        
+        return { vertices, faces };
+    },
+
+    generateCone: function (radiusBottom, radiusTop, height, radialSegments, heightSegments, color, thetaStart = 0, thetaLength = Math.PI * 2) {
+        const vertices = [];
+        const faces = [];
+        
+        // Cone/Truncated Cone (Frustum)
+        // radiusTop = 0 untuk cone sempurna (pointed)
+        // radiusTop > 0 untuk truncated cone
+        
+        for (let i = 0; i <= heightSegments; i++) {
+            for (let j = 0; j <= radialSegments; j++) {
+                const u = i / heightSegments; // 0 to 1 (bottom to top)
+                const v = j / radialSegments; // 0 to 1 (around circle)
+                
+                // Interpolate radius from bottom to top
+                const radius = radiusBottom + (radiusTop - radiusBottom) * u;
+                
+                // Angle around the cone
+                const theta = thetaStart + v * thetaLength;
+                
+                // Position
+                const x = radius * Math.cos(theta);
+                const y = u * height - height / 2; // Center at origin
+                const z = radius * Math.sin(theta);
+                
+                vertices.push(x, y, z, color[0], color[1], color[2], v, u);
+            }
+        }
+        
+        // Generate faces
+        for (let i = 0; i < heightSegments; i++) {
+            for (let j = 0; j < radialSegments; j++) {
+                const p1 = i * (radialSegments + 1) + j;
+                const p2 = p1 + 1;
+                const p3 = p1 + (radialSegments + 1);
+                const p4 = p3 + 1;
+                faces.push(p1, p2, p4, p1, p4, p3);
+            }
+        }
+        
+        return { vertices, faces };
+    },
+
     /**
      * Generates a blunted, beak-like shape.
      * @param {number} width - Max width (x-axis).
@@ -39,6 +134,75 @@ const Geometry = {
      * @param {Array<number>} color - The RGB color array.
      * @returns {{vertices: Array<number>, faces: Array<number>}}
      */
+
+    generateHemisphere: function (a, b, c, stack, step, color, side = 'outer') {
+        const vertices = [];
+        const faces = [];
+        
+        for (let i = 0; i <= stack; i++) {
+            for (let j = 0; j <= step; j++) {
+                const u = i / stack;
+                const v = j / step;
+                
+                // Untuk hemisphere, batasi theta hanya setengah (0 to PI/2 atau PI/2 to PI)
+                const theta = side === 'outer' ? u * Math.PI : u * Math.PI; // bisa disesuaikan
+                
+                // Batasi phi untuk setengah lingkaran (hanya bagian luar)
+                const phi = (v * Math.PI) + (side === 'left' ? Math.PI/2 : -Math.PI/2);
+
+                const x = a * Math.sin(theta) * Math.cos(phi);
+                const y = b * Math.cos(theta);
+                const z = c * Math.sin(theta) * Math.sin(phi);
+
+                vertices.push(x, y, z, color[0], color[1], color[2], v, u - 1.0);
+            }
+        }
+    },
+
+    generateHalfHyperboloid: function (a, b, c, stack, step, color, minHeight = 0, maxHeight = 1) {
+        const vertices = [];
+        const faces = [];
+        
+        // Hyperboloid of 1 sheet: x²/a² + z²/c² - y²/b² = 1
+        // Parametric form:
+        // x = a * cosh(v) * cos(u)
+        // y = b * sinh(v)
+        // z = c * cosh(v) * sin(u)
+        // where u ∈ [0, 2π] and v ∈ [minHeight, maxHeight] for upper half
+        
+        for (let i = 0; i <= stack; i++) {
+            for (let j = 0; j <= step; j++) {
+                const u = (j / step) * 2 * Math.PI; // Full rotation around y-axis
+                const v = minHeight + (i / stack) * (maxHeight - minHeight); // Height parameter
+                
+                // Hyperbolic functions
+                const coshV = Math.cosh(v);
+                const sinhV = Math.sinh(v);
+                
+                // Hyperboloid parametric equations
+                const x = a * coshV * Math.cos(u);
+                const y = b * sinhV; // This creates the "waist" effect
+                const z = c * coshV * Math.sin(u);
+                
+                vertices.push(x, y, z, color[0], color[1], color[2], j / step, i / stack);
+            }
+        }
+        
+        // Generate faces
+        for (let i = 0; i < stack; i++) {
+            for (let j = 0; j < step; j++) {
+                const p1 = i * (step + 1) + j;
+                const p2 = p1 + 1;
+                const p3 = p1 + (step + 1);
+                const p4 = p3 + 1;
+                faces.push(p1, p2, p4, p1, p4, p3);
+            }
+        }
+        
+        return { vertices, faces };
+    },
+
+
     generateBeak: function(width, thickness, length, segments, color) {
         const vertices = [];
         const faces = [];
@@ -348,10 +512,11 @@ class Piplup {
 
     initParts() {
         const gl = this.gl;
-        // Piplup Colors
+        // Empoleon Colors
         const C = {
-            BODY: [0.52, 0.80, 1.00], HEAD: [0.20, 0.38, 0.64], BEAK: [1.00, 0.84, 0.00], CAPE: [0.24, 0.42, 0.96],
-            EYE_W: [1.00, 1.00, 1.00], BLACK: [0.00, 0.00, 0.00], FEET: [1.00, 0.65, 0.00], WHITE: [1.00, 1.00, 1.00], TAIL: [0.30, 0.54, 0.80]
+            BODY: [0.52, 0.80, 1.00], HEAD: [0.294, 0.541, 0.796], BEAK: [1.00, 0.84, 0.00], CAPE: [0.24, 0.42, 0.96],
+            EYE_W: [1.00, 1.00, 1.00], BLACK: [0.00, 0.00, 0.00], FEET: [1.00, 0.65, 0.00], WHITE: [1.00, 1.00, 1.00], 
+            TAIL: [0.30, 0.54, 0.80], EMPO_BASE: [0.2, 0.247, 0.278], EMPO_LOWER_BODY: [0.18, 0.224, 0.247]
         };
 
         // Helper function to create a translation matrix using your libs.js functions
@@ -543,7 +708,118 @@ class Piplup {
                 LIBS.rotateX(m, 1.2);
                 return m
             })()},
-        ]
+
+            // Hands
+            { geom: Geometry.generateSphere(0.2, 1.5, 0.5, 15, 15, C.EMPO_BASE), trans: (() => {
+                    let m = createTransform(-1.2, 0.25, 0.2);
+                    LIBS.rotateZ(m, LIBS.degToRad(-30));
+                    LIBS.rotateX(m, LIBS.degToRad(-10));
+                    return m;
+                })()},
+            { geom: Geometry.generateSphere(0.2, 1.5, 0.5, 15, 15, C.EMPO_BASE), trans: (() => {
+                    let m = createTransform(1.2, 0.25, 0.2);
+                    LIBS.rotateZ(m, LIBS.degToRad(30));
+                    LIBS.rotateX(m, LIBS.degToRad(-10));
+                    return m;
+                })()},
+            
+            // Outer Hands
+            // Kiri
+            { geom: Geometry.generateHalfEllipsoid(0.15, 1.5, 0.6, 15, 15, C.HEAD, 'lower'), trans: (() => {
+                    let m = createTransform(-1.225, 0.20, 0.2);
+                    LIBS.rotateZ(m, LIBS.degToRad(-30));
+                    LIBS.rotateX(m, LIBS.degToRad(-10));
+                    return m;
+                })()},
+
+            { geom: Geometry.generateCone(0.2, 0, 0.4, 4, 20, C.HEAD), trans: (() => {
+                    let m = createTransform(-1.225, 0.30, 0.85);
+                        LIBS.rotateZ(m, LIBS.degToRad(180));
+                        LIBS.rotateY(m, LIBS.degToRad(30));
+                        LIBS.rotateX(m, LIBS.degToRad(-100));
+                        return m;
+                })()},
+
+            { geom: Geometry.generateCone(0.2, 0, 0.4, 4, 20, C.HEAD), trans: (() => {
+                    let m = createTransform(-1.225, 0.225, 0.465);
+                        LIBS.rotateZ(m, LIBS.degToRad(0));
+                        LIBS.rotateY(m, LIBS.degToRad(30));
+                        LIBS.rotateX(m, LIBS.degToRad(-100));
+                        return m;
+                })()},
+
+            { geom: Geometry.generateCone(0.2, 0, 0.4, 4, 20, C.HEAD), trans: (() => {
+                    let m = createTransform(-1.225, 0.10, -0.425);
+                        LIBS.rotateZ(m, LIBS.degToRad(0));
+                        LIBS.rotateY(m, LIBS.degToRad(30));
+                        LIBS.rotateX(m, LIBS.degToRad(-100));
+                        return m;
+                })()},
+
+            { geom: Geometry.generateCone(0.2, 0, 0.4, 4, 20, C.HEAD), trans: (() => {
+                    let m = createTransform(-1.225, 0.16, -0.040);
+                        LIBS.rotateZ(m, LIBS.degToRad(180));
+                        LIBS.rotateY(m, LIBS.degToRad(30));
+                        LIBS.rotateX(m, LIBS.degToRad(-100));
+                        return m;
+                })()},
+
+            // Kanan
+            { geom: Geometry.generateHalfEllipsoid(0.15, 1.5, 0.6, 15, 15, C.HEAD, 'lower'), trans: (() => {
+                    let m = createTransform(1.225, 0.20, 0.2);
+                    LIBS.rotateZ(m, LIBS.degToRad(30));
+                    LIBS.rotateX(m, LIBS.degToRad(-10));
+                    return m;
+                })()},
+
+            { geom: Geometry.generateCone(0.2, 0, 0.4, 4, 20, C.HEAD), trans: (() => {
+                    let m = createTransform(1.225, 0.30, 0.85);
+                        LIBS.rotateZ(m, LIBS.degToRad(180));
+                        LIBS.rotateY(m, LIBS.degToRad(60));
+                        LIBS.rotateX(m, LIBS.degToRad(-100));
+                        return m;
+                })()},
+
+            { geom: Geometry.generateCone(0.2, 0, 0.4, 4, 20, C.HEAD), trans: (() => {
+                    let m = createTransform(1.225, 0.225, 0.465);
+                        LIBS.rotateZ(m, LIBS.degToRad(0));
+                        LIBS.rotateY(m, LIBS.degToRad(60));
+                        LIBS.rotateX(m, LIBS.degToRad(-100));
+                        return m;
+                })()},
+
+            { geom: Geometry.generateCone(0.2, 0, 0.4, 4, 20, C.HEAD), trans: (() => {
+                    let m = createTransform(1.225, 0.10, -0.425);
+                        LIBS.rotateZ(m, LIBS.degToRad(0));
+                        LIBS.rotateY(m, LIBS.degToRad(60));
+                        LIBS.rotateX(m, LIBS.degToRad(-100));
+                        return m;
+                })()},
+
+            { geom: Geometry.generateCone(0.2, 0, 0.4, 4, 20, C.HEAD), trans: (() => {
+                    let m = createTransform(1.22, 0.16, -0.040);
+                        LIBS.rotateZ(m, LIBS.degToRad(180));
+                        LIBS.rotateY(m, LIBS.degToRad(60));
+                        LIBS.rotateX(m, LIBS.degToRad(-100));
+                        return m;
+                })()},
+            
+            // Legs
+            { geom: Geometry.generateHalfHyperboloid(0.25, 0.5, 0.25, 20, 20, C.EMPO_LOWER_BODY, 0, 1.3), trans: (() => {
+                    let m = createTransform(-0.55, -1.9, 0.3);
+                    LIBS.rotateZ(m, LIBS.degToRad(-10));
+                    LIBS.rotateX(m, LIBS.degToRad(-10));
+                    return m;
+                })()},
+
+            { geom: Geometry.generateHalfHyperboloid(0.25, 0.5, 0.25, 20, 20, C.EMPO_LOWER_BODY, 0, 1.3), trans: (() => {
+                    let m = createTransform(0.55, -1.9, 0.3);
+                    LIBS.rotateZ(m, LIBS.degToRad(10));
+                    LIBS.rotateX(m, LIBS.degToRad(-10));
+                    return m;
+                })()},
+    
+    ]
         partDefinitions.forEach(def => {
             const part = new PiplupPart(gl, def.geom, def.texture);
             part.setTransform(def.trans);
