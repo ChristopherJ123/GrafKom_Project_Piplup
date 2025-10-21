@@ -280,11 +280,184 @@ const Geometry = {
 
         return { vertices, faces };
     },
+
+    generateCircle: function(radius, segments, color) {
+        const vertices = [];
+        const faces = [];
+        // Add the center vertex at (0, 0, 0)
+        // Vertex format: x, y, z, r, g, b, u, v
+        vertices.push(0, 0, 0, color[0], color[1], color[2], 0.5, 0.5);
+
+        // Add vertices for the circumference
+        for (let i = 0; i <= segments; i++) {
+            const theta = (i / segments) * 2 * Math.PI;
+            const x = radius * Math.cos(theta);
+            const y = radius * Math.sin(theta);
+            
+            // Texture coordinates (map circular coords to square UV space)
+            const u = (x / radius + 1) / 2;
+            const v = (y / radius + 1) / 2;
+
+            vertices.push(x, y, 0, color[0], color[1], color[2], u, v);
+        }
+        // Create the faces using the center vertex (index 0)
+        for (let i = 1; i <= segments; i++) {
+            const centerIndex = 0;
+            const currentIndex = i;
+            const nextIndex = i + 1;
+            faces.push(centerIndex, currentIndex, nextIndex);
+        }
+        return { vertices, faces };
+    },
+
+    generateAngryEye: function(a, b, c, stack, step, verticalSweepDegrees, color) {
+        const vertices = [];
+        const faces = [];
+
+        const verticalSweepRad = (verticalSweepDegrees * Math.PI) / 180;
+        
+        // The sweep starts from the bottom pole (theta=PI) and goes upwards.
+        const endTheta = Math.PI - verticalSweepRad;
+
+        for (let i = 0; i <= stack; i++) {
+            for (let j = 0; j <= step; j++) {
+                const u = i / stack; // progression along the sweep
+                const v = j / step; // progression around the circle
+
+                const theta = Math.PI - u * verticalSweepRad;
+                const phi = v * 2 * Math.PI;
+
+                const x = a * Math.sin(theta) * Math.cos(phi);
+                const y = b * Math.cos(theta);
+                const z = c * Math.sin(theta) * Math.sin(phi);
+
+                vertices.push(x, y, z, color[0], color[1], color[2], v, u);
+            }
+        }
+
+        // Create faces for the curved surface
+        for (let i = 0; i < stack; i++) {
+            for (let j = 0; j < step; j++) {
+                const p1 = i * (step + 1) + j;
+                const p2 = p1 + 1;
+                const p3 = p1 + (step + 1);
+                const p4 = p3 + 1;
+                faces.push(p1, p2, p4, p1, p4, p3);
+            }
+        }
+
+        // If the sweep is less than 180, create a flat top cap to close the shape
+        if (verticalSweepDegrees < 180 && verticalSweepDegrees > 0) {
+            const capCenterY = b * Math.cos(endTheta);
+            const centerIndex = vertices.length / 8; // index for the new center vertex
+            vertices.push(0, capCenterY, 0, color[0], color[1], color[2], 0.5, 0.5);
+
+            // Create the fan faces for the cap
+            const lastRingStartIndex = stack * (step + 1);
+            for (let j = 0; j < step; j++) {
+                const p1 = lastRingStartIndex + j;
+                const p2 = lastRingStartIndex + j + 1;
+                // The order (p1, p2, centerIndex) should make the face point upwards
+                faces.push(p1, p2, centerIndex);
+            }
+        }
+
+        return { vertices, faces };
+    },
+
+    generateCone: function(radius, height, segments, color) {
+        const vertices = [];
+        const faces = [];
+        const halfHeight = height / 2;
+
+        // --- Vertices ---
+
+        // 1. Tip vertex
+        // [x, y, z, r, g, b, u, v]
+        vertices.push(0, halfHeight, 0, color[0], color[1], color[2], 0.5, 1);
+
+        // 2. Base center vertex (for the bottom cap)
+        vertices.push(0, -halfHeight, 0, color[0], color[1], color[2], 0.5, 0);
+        
+        // 3. Base circumference vertices
+        for (let i = 0; i <= segments; i++) {
+            const theta = (i / segments) * 2 * Math.PI;
+            const x = radius * Math.cos(theta);
+            const z = radius * Math.sin(theta);
+            
+            // UV coordinates mapping the circle to a square
+            const u = (x / radius + 1) / 2;
+            const v = (z / radius + 1) / 2;
+
+            vertices.push(x, -halfHeight, z, color[0], color[1], color[2], u, v);
+        }
+
+        // --- Faces ---
+        const tipIndex = 0;
+        const baseCenterIndex = 1;
+
+        for (let i = 0; i < segments; i++) {
+            const currentIndex = i + 2;
+            const nextIndex = i + 3;
+
+            // Side face
+            faces.push(tipIndex, currentIndex, nextIndex);
+            
+            // Base face (note the winding order is reversed to face down)
+            faces.push(baseCenterIndex, nextIndex, currentIndex);
+        }
+
+        return { vertices, faces };
+    },
+
+    generateBeak: function(width, thickness, length, segments, color) {
+        const vertices = [];
+        const faces = [];
+
+        // Tip of the beak
+        vertices.push(0, 0, 0, color[0], color[1], color[2], 0, 0);
+
+        // Build the beak with circular cross-sections
+        for (let i = 1; i <= segments; i++) {
+            const t = i / segments; // Parameter from 0 to 1
+
+            // Use sqrt(t) to make the beak fatter at the base and blunter at the tip
+            const radiusScale = Math.sqrt(t);
+            const currentZ = -length * t; // Move along the negative Z-axis
+
+            for (let j = 0; j < segments; j++) {
+                const theta = (j / segments) * 2 * Math.PI;
+                const x = width * radiusScale * Math.cos(theta);
+                const y = thickness * radiusScale * Math.sin(theta);
+                vertices.push(x, y, currentZ, color[0], color[1], color[2], t, j / segments);
+            }
+        }
+
+        // Create faces for the tip
+        for (let j = 1; j <= segments; j++) {
+            faces.push(0, j, (j % segments) + 1);
+        }
+
+        // Create faces for the sides
+        for (let i = 0; i < segments - 1; i++) {
+            const ring1_start = 1 + i * segments;
+            const ring2_start = 1 + (i + 1) * segments;
+            for (let j = 0; j < segments; j++) {
+                const p1 = ring1_start + j;
+                const p2 = ring1_start + ((j + 1) % segments);
+                const p3 = ring2_start + j;
+                const p4 = ring2_start + ((j + 1) % segments);
+                faces.push(p1, p3, p2, p2, p3, p4);
+            }
+        }
+
+        return { vertices, faces };
+    },
 };
 
-// --- PIPLUP PART CLASS ---
-// Represents a single drawable part of the Piplup model.
-class PiplupPart {
+// --- Prinplup PART CLASS ---
+// Represents a single drawable part of the Prinplup model.
+class PrinplupPart {
     constructor(gl, geometry, texture = null) {
         this.gl = gl;
         this.geometry = geometry;
@@ -335,22 +508,22 @@ class PiplupPart {
     }
 }
 
-// --- PIPLUP CONTAINER CLASS ---
-// Manages all the parts that make up the Piplup.
-class Piplup {
+// --- Prinplup CONTAINER CLASS ---
+// Manages all the parts that make up the Prinplup.
+class Prinplup {
     constructor(gl, renderer) {
         this.gl = gl;
         this.renderer = renderer;
         this.parts = [];
-        this.modelMatrix = LIBS.get_I4(); // This matrix will control the entire Piplup's rotation
+        this.modelMatrix = LIBS.get_I4(); // This matrix will control the entire Prinplup's rotation
         this.initParts();
     }
 
     initParts() {
         const gl = this.gl;
-        // Piplup Colors
+        // Prinplup Colors
         const C = {
-            BODY: [0.52, 0.80, 1.00], HEAD: [0.20, 0.38, 0.64], BEAK: [1.00, 0.84, 0.00], CAPE: [0.24, 0.42, 0.96],
+            BODY: [0.61, 0.84, 0.89], HEAD: [0.20, 0.38, 0.64], BEAK: [1.00, 0.84, 0.00], CAPE: [0.24, 0.42, 0.96],
             EYE_W: [1.00, 1.00, 1.00], BLACK: [0.00, 0.00, 0.00], FEET: [1.00, 0.65, 0.00], WHITE: [1.00, 1.00, 1.00], TAIL: [0.08, 0.32, 0.60]
         };
 
@@ -363,29 +536,36 @@ class Piplup {
             return m;
         };
 
-        const headTexture = this.renderer.loadTexture("Resource/prinplup_texture.png");
+        const createOrientedTransform = (radX, radY, radZ, x, y) => {
+            // A. Calculate the precise 'z' on the surface
+            const termX = (x * x) / (radX * radX);
+            const termY = (y * y) / (radY * radY);
+            const z_on_surface = radZ * Math.sqrt(1.0 - termX - termY);
+
+            // Add a tiny offset to prevent clipping
+            const z_final = z_on_surface + 0.01;
+
+            // B. Calculate rotation angles to match the surface curve
+            const angleY = Math.atan2(x, z_final);
+            const angleX = -Math.atan2(y, z_final);
+
+            // C. Build the transformation matrix
+            const m = LIBS.get_I4(); // Start with a fresh identity matrix
+
+            // Apply rotations (order matters: Y-axis first, then X-axis)
+            LIBS.rotateY(m, angleY);
+            LIBS.rotateX(m, angleX);
+
+            // Apply the final position
+            LIBS.set_position(m, x, y, z_final);
+
+            return m; // Return the finished matrix
+        };
+
+        const headTexture = this.renderer.loadTexture("Resource/prinplup_texture_no_eyes_.png");
         const handTexture = this.renderer.loadTexture("Resource/prinplup_hand_texture.png");
 
-        // First, define the 2D profile for the bean shape
-        // const body_profile = [
-        //     [0.0, 1.9, 0],
-        //     // [0.1, 1.95, 0],
-        //     [0.25, 1.9, 0],
-        //     [0.4, 1.8, 0],
-        //     [0.5, 1.6, 0],
-        //     [0.52, 1.4, 0],
-        //     [0.54, 1.2, 0],   // Top point (neck)
-        //     [0.6, 0.9, 0],
-        //     [0.8, 0.4, 0],
-        //     [0.95, -0.1, 0],   // Widest part of the belly
-        //     [0.9, -0.5, 0],
-        //     [0.6, -0.9, 0],
-        //     // [0.45, -1.1, 0],
-        //     [0.0, -1.1, 0]   // Bottom point
-        // ];
-
         const body_profile = [
-            [0.0, 1.95, 0],
             [0.0, 1.95, 0],
             [0.15, 1.95, 0],
             [0.3, 1.9, 0],
@@ -400,23 +580,30 @@ class Piplup {
             [0.59, 1.0, 0],
             [0.62, 0.9, 0],
             [0.65, 0.8, 0],
-            [0.7, 0.7, 0],
-            [0.75, 0.6, 0],
-            [0.8, 0.5, 0],
-            [0.85, 0.4, 0],
-            [0.9, 0.3, 0],
-            [0.95, 0.2, 0],
-            [0.98, 0.1, 0],
-            [1, 0, 0],
-            [1, -0.1, 0],   // Widest part of the belly
-            [1, -0.2, 0],
-            [0.975, -0.3, 0],
-            [0.95, -0.4, 0],
-            [0.9, -0.5, 0],
-            [0.85, -0.6, 0],
-            [0.75, -0.7, 0],
-            [0.55, -0.8, 0],
-            [0.0, -0.9, 0],   // Bottom point
+            [0.70, 0.7, 0],
+            // [0.75, 0.6, 0],
+            // [0.80, 0.5, 0],
+            // [0.82, 0.4, 0],
+            // [0.84, 0.3, 0],
+            // [0.86, 0.2, 0],
+            // [0.88, 0.1, 0],
+            [0.92, 0, 0],
+            [0.94, -0.1, 0],   // Widest part of the belly
+            [0.96, -0.2, 0],
+            [0.96, -0.3, 0],
+            [0.96, -0.4, 0],
+            [0.96, -0.5, 0],
+            [0.96, -0.6, 0],
+            [0.96, -0.7, 0],
+            [0.96, -0.8, 0],
+            [0.96, -0.9, 0],
+            [0.90, -1.0, 0],
+            [0.84, -1.1, 0],
+            [0.64, -1.2, 0],
+            [0.44, -1.21, 0],
+            [0.24, -1.22, 0],
+            [0.04, -1.23, 0],
+            [0.0, -1.24, 0],
         ];
 
         // Define parts and their local transformations
@@ -432,21 +619,95 @@ class Piplup {
                 })(), // Slightly raise the body
                 texture: headTexture
             },
+            { geom: Geometry.generateCircle(0.17, 20, C.WHITE), trans: createOrientedTransform(0.6, 1.0, 1.15, -0.4, 0.25)},
+            { geom: Geometry.generateCircle(0.17, 20, C.WHITE), trans: createOrientedTransform(0.6, 1.0, 1.15, 0.4, 0.25)},
+            // { geom: Geometry.generateCircle(0.17, 20, C.HEAD), trans: createOrientedTransform(0.6, 1.2, 1.42, 0.4, -0.4)},
+            // { geom: Geometry.generateCircle(0.17, 20, C.BEAK), trans: createOrientedTransform(0.6, -1, 1.5, -0.4, -0.4)},
+            { geom: Geometry.generateCircle(0.17, 20, C.WHITE), trans: createTransform(-0.4, -0.4, 0.94)},
+            { geom: Geometry.generateCircle(0.17, 20, C.WHITE), trans: createTransform(0.4, -0.4, 0.94)},
+            
+
+            // Round disk passing head
+            { geom: Geometry.generateSphere(0.7, 0.12, 0.55, 20, 20, C.BEAK), trans: (() => {
+                let m = createTransform(-0.2, 2, 0);
+                // LIBS.rotateX(m, LIBS.degToRad(60))
+                // LIBS.rotateY(m, LIBS.degToRad(60));
+                LIBS.rotateZ(m, LIBS.degToRad(120));
+                return m;
+            })()},
+            { geom: Geometry.generateSphere(0.7, 0.12, 0.55, 20, 20, C.BEAK), trans: (() => {
+                let m = createTransform(0.2, 2, 0);
+                // LIBS.rotateX(m, LIBS.degToRad(60))
+                // LIBS.rotateY(m, LIBS.degToRad(60));
+                LIBS.rotateZ(m, LIBS.degToRad(60));
+                return m;
+            })()},
+
+            // Eyes
+            { geom: Geometry.generateAngryEye(0.15, 0.2, 0.1, 10, 10, 130, C.WHITE), trans: (() => {
+                let m = createTransform(-0.3, 1.8, 0.4);
+                LIBS.rotateZ(m, LIBS.degToRad(330));
+                return m;
+            }) () },
+            { geom: Geometry.generateAngryEye(0.1, 0.15, 0.12, 10, 10, 130, C.HEAD), trans: (() => {
+                let m = createTransform(-0.33, 1.8, 0.42);
+                LIBS.rotateZ(m, LIBS.degToRad(330));
+                return m;
+            }) () },
+            { geom: Geometry.generateAngryEye(0.07, 0.12, 0.12, 10, 10, 130, C.BLACK), trans: (() => {
+                let m = createTransform(-0.3, 1.8, 0.45);
+                LIBS.rotateZ(m, LIBS.degToRad(330));
+                return m;
+            }) () },
+            { geom: Geometry.generateSphere(0.03, 0.03, 0.07, 10, 10, C.WHITE), trans: createTransform(-0.3, 1.83, 0.52)},
+
+            { geom: Geometry.generateAngryEye(0.15, 0.2, 0.1, 10, 10, 130, C.WHITE), trans: (() => {
+                let m = createTransform(0.3, 1.8, 0.4);
+                LIBS.rotateZ(m, LIBS.degToRad(30));
+                return m;
+            }) () },
+            { geom: Geometry.generateAngryEye(0.1, 0.15, 0.12, 10, 10, 130, C.HEAD), trans: (() => {
+                let m = createTransform(0.33, 1.8, 0.42);
+                LIBS.rotateZ(m, LIBS.degToRad(30));
+                return m;
+            }) () },
+            { geom: Geometry.generateAngryEye(0.07, 0.12, 0.12, 10, 10, 130, C.BLACK), trans: (() => {
+                let m = createTransform(0.3, 1.8, 0.45);
+                LIBS.rotateZ(m, LIBS.degToRad(30));
+                return m;
+            }) () },
+            { geom: Geometry.generateSphere(0.03, 0.03, 0.07, 10, 10, C.WHITE), trans: createTransform(0.3, 1.83, 0.52)},
+
+            // Beak: Beak + Cone for Top and Front
+            { geom: Geometry.generateBeak(0.22, 0.35, 0.55, 20, C.BEAK), trans: (() => {
+                    let m = createTransform(0, 1.6, 0.9);
+                    LIBS.rotateX(m, LIBS.degToRad(5));
+                    return m;
+                })()},
+            { geom: Geometry.generateCone(0.15, 0.3, 15, C.BEAK), trans: (() => {
+                    let m = createTransform(0, 1.85, 0.6);
+                    LIBS.rotateX(m, LIBS.degToRad(-15));
+                    return m;
+                })()},
+            // { geom: Geometry.generateCone(0.18, 0.3, 15, C.BEAK), trans: (() => {
+            //         let m = createTransform(0, 1.6, 0.8);
+            //         LIBS.rotateX(m, LIBS.degToRad(120));
+            //         return m;
+            //     })()},
 
             // Hands
-            { geom: Geometry.generateSphere(0.2, 1, 0.5, 15, 15, C.TAIL),
+            { geom: Geometry.generateSphere(0.2, 1.5, 0.5, 15, 15, C.TAIL),
                 trans: (() => {
-                    let m = createTransform(-1.2, 0.6, 0.1);
+                    let m = createTransform(-1.2, 0.42, 0.1);
                     LIBS.rotateZ(m, LIBS.degToRad(-40));
                     LIBS.rotateX(m, LIBS.degToRad(-10));
                     return m;
                 })(),
                 texture: handTexture
             },
-
-            { geom: Geometry.generateSphere(0.2, 1, 0.5, 15, 15, C.TAIL),
+            { geom: Geometry.generateSphere(0.2, 1.5, 0.5, 15, 15, C.TAIL),
                 trans: (() => {
-                    let m = createTransform(1.2, 0.6, 0.1);
+                    let m = createTransform(1.2, 0.42, 0.1);
                     LIBS.rotateZ(m, LIBS.degToRad(40));
                     LIBS.rotateX(m, LIBS.degToRad(-10));
                     return m;
@@ -454,6 +715,17 @@ class Piplup {
                 texture: handTexture
             },
 
+            // Legs (Body-Feet)
+            { geom: Geometry.generateSphere(0.3, 0.8, 0.4, 10, 10, C.BODY), trans: createTransform(-0.65, -1.2, 0.1)},
+            { geom: Geometry.generateSphere(0.3, 0.8, 0.4, 10, 10, C.BODY), trans: createTransform(0.65, -1.2, 0.1)},
+            // Feet
+            { geom: Geometry.generateSphere(0.3, 0.12, 0.35, 10, 10, C.FEET), trans: createTransform(-0.65, -1.9, 0.24)},
+            { geom: Geometry.generateSphere(0.3, 0.1, 0.5, 10, 10, C.FEET), trans: createTransform(-0.65, -2, 0.4)},
+
+            { geom: Geometry.generateSphere(0.3, 0.12, 0.35, 10, 10, C.FEET), trans: createTransform(0.65, -1.9, 0.24)},
+            { geom: Geometry.generateSphere(0.3, 0.1, 0.6, 10, 10, C.FEET), trans: createTransform(0.65, -2, 0.4)},
+
+            // Sirip Belakang
             {
                 geom: Geometry.generateTaperedShapeFromSpline(
                     // Control points define the curve's path from base to tip
@@ -469,14 +741,14 @@ class Piplup {
                     C.TAIL // Using the head color for the tail
                 ),
                 trans: (() => {
-                    const m = createTransform(0, 0.6, 0.1);
+                    const m = createTransform(0, -0.2, 0.1);
                     // LIBS.scale(m, 1.2);
                     return m
                 })(), // No transformation needed, points are in world space
             }
         ]
         partDefinitions.forEach(def => {
-            const part = new PiplupPart(gl, def.geom, def.texture);
+            const part = new PrinplupPart(gl, def.geom, def.texture);
             part.setTransform(def.trans);
             this.parts.push(part);
         });
@@ -501,10 +773,10 @@ class Renderer {
         if (!this.gl) throw new Error("WebGL not supported");
 
         this.shader = this.createShaderProgram();
-        this.piplup = new Piplup(this.gl, this);
+        this.Prinplup = new Prinplup(this.gl, this);
 
         this.viewMatrix = LIBS.get_I4();
-        LIBS.translateZ(this.viewMatrix, -9);
+        LIBS.translateZ(this.viewMatrix, -4.5);
         // LIBS.rotateY(this.viewMatrix, Math.PI / 2);
         this.projMatrix = LIBS.get_projection(40, this.canvas.width / this.canvas.height, 1, 100);
 
@@ -619,7 +891,7 @@ class Renderer {
             y_prev = e.pageY;
         };
 
-        // This function is called every frame to update the Piplup's rotation
+        // This function is called every frame to update the Prinplup's rotation
         this.updateRotation = () => {
             if (!drag) {
                 dX *= (1 - FRICTION);
@@ -630,7 +902,7 @@ class Renderer {
             const rotationMatrix = LIBS.get_I4();
             LIBS.rotateY(rotationMatrix, THETA);
             LIBS.rotateX(rotationMatrix, PHI);
-            this.piplup.modelMatrix = rotationMatrix;
+            this.Prinplup.modelMatrix = rotationMatrix;
         };
     }
 
@@ -650,7 +922,7 @@ class Renderer {
             gl.uniformMatrix4fv(this.shader.locations.Pmatrix, false, this.projMatrix);
             gl.uniformMatrix4fv(this.shader.locations.Vmatrix, false, this.viewMatrix);
 
-            this.piplup.draw(this.shader);
+            this.Prinplup.draw(this.shader);
 
             requestAnimationFrame(render);
         };
