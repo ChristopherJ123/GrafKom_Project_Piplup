@@ -612,5 +612,5 @@ class Renderer {
 
 // --- START THE APPLICATION ---
 window.addEventListener('load', () => {
-    new Renderer('myCanvas');
+    new Renderer('piplup-canvas');
 });

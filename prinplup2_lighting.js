@@ -1,5 +1,7 @@
 // --- UTILITY FOR GEOMETRY ---
 // We place the geometry generation logic in its own object to keep things organized.
+(function() {
+
 const Geometry = {
     generateSphere: function (a, b, c, stack, step, color) {
         const vertices = [];
@@ -15,7 +17,10 @@ const Geometry = {
                 const y = b * Math.cos(theta);
                 const z = c * Math.sin(theta) * Math.sin(phi);
 
-                vertices.push(x, y, z, color[0], color[1], color[2], v, u - 1.0);
+                // Normal for a sphere is just its position vector (normalized)
+                const normal = [x, y, z];
+
+                vertices.push(x, y, z, color[0], color[1], color[2], v, u - 1.0, normal[0], normal[1], normal[2]);
             }
         }
         for (let i = 0; i < stack; i++) {
@@ -44,7 +49,8 @@ const Geometry = {
         const faces = [];
 
         // Tip of the beak
-        vertices.push(0, 0, 0, color[0], color[1], color[2], 0, 0);
+        // Normal points straight out the tip
+        vertices.push(0, 0, 0, color[0], color[1], color[2], 0, 0, 0, 0, 1);
 
         // Build the beak with circular cross-sections
         for (let i = 1; i <= segments; i++) {
@@ -58,7 +64,17 @@ const Geometry = {
                 const theta = (j / segments) * 2 * Math.PI;
                 const x = width * radiusScale * Math.cos(theta);
                 const y = thickness * radiusScale * Math.sin(theta);
-                vertices.push(x, y, currentZ, color[0], color[1], color[2], t, j / segments);
+                
+                // Normal for the sides
+                let nx = x;
+                let ny = y;
+                const mag = Math.sqrt(nx * nx + ny * ny);
+                if (mag > 0) {
+                    nx /= mag;
+                    ny /= mag;
+                }
+
+                vertices.push(x, y, currentZ, color[0], color[1], color[2], t, j / segments, nx, ny, 0);
             }
         }
 
@@ -141,10 +157,13 @@ const Geometry = {
                 var x = point[0] + radius * (Math.cos(theta) * normal[0] + Math.sin(theta) * binormal[0]);
                 var y = point[1] + radius * (Math.cos(theta) * normal[1] + Math.sin(theta) * binormal[1]);
                 var z = point[2] + radius * (Math.cos(theta) * normal[2] + Math.sin(theta) * binormal[2]);
-                vertices.push(x, y, z);
+                
+                // Normal is the vector from the spline point to the vertex
+                var n = [x - point[0], y - point[1], z - point[2]];
+                var mag = Math.sqrt(n[0]*n[0] + n[1]*n[1] + n[2]*n[2]);
+                if (mag > 0) { n[0] /= mag; n[1] /= mag; n[2] /= mag; }
 
-                // Color
-                vertices.push(color[0], color[1], color[2], j / radialSegments, i / splinePoints.length);
+                vertices.push(x, y, z, color[0], color[1], color[2], j / radialSegments, i / splinePoints.length, n[0], n[1], n[2]);
             }
         }
 
@@ -225,7 +244,13 @@ const Geometry = {
                 var x = point[0] + (currentRadiusX * Math.cos(theta) * normal[0] + currentRadiusY * Math.sin(theta) * binormal[0]);
                 var y = point[1] + (currentRadiusX * Math.cos(theta) * normal[1] + currentRadiusY * Math.sin(theta) * binormal[1]);
                 var z = point[2] + (currentRadiusX * Math.cos(theta) * normal[2] + currentRadiusY * Math.sin(theta) * binormal[2]);
-                vertices.push(x, y, z, color[0], color[1], color[2], j/radialSegments, i/splinePoints.length);
+                
+                // Normal is vector from spline point to vertex
+                var n = [x - point[0], y - point[1], z - point[2]];
+                var mag = Math.sqrt(n[0]*n[0] + n[1]*n[1] + n[2]*n[2]);
+                if (mag > 0) { n[0] /= mag; n[1] /= mag; n[2] /= mag; }
+
+                vertices.push(x, y, z, color[0], color[1], color[2], j/radialSegments, i/splinePoints.length, n[0], n[1], n[2]);
             }
         }
 
@@ -258,11 +283,41 @@ const Geometry = {
                 const y = points[j][1];
                 const z = points[j][0] * sin_phi;
 
+                // Calculate normal based on profile tangent
+                let p_prev = points[j > 0 ? j - 1 : j];
+                let p_next = points[j < points.length - 1 ? j + 1 : j];
+                
+                let tangent_r, tangent_y;
+                if (j == 0) {
+                    tangent_r = points[1][0] - points[0][0];
+                    tangent_y = points[1][1] - points[0][1];
+                } else if (j == points.length - 1) {
+                    tangent_r = points[j][0] - points[j-1][0];
+                    tangent_y = points[j][1] - points[j-1][1];
+                } else {
+                    tangent_r = p_next[0] - p_prev[0];
+                    tangent_y = p_next[1] - p_prev[1];
+                }
+
+                let profile_normal_r = -tangent_y;
+                let profile_normal_y = tangent_r;
+                
+                let mag = Math.sqrt(profile_normal_r*profile_normal_r + profile_normal_y*profile_normal_y);
+                if (mag > 0) { 
+                    profile_normal_r /= mag; 
+                    profile_normal_y /= mag; 
+                }
+
+                let nx = profile_normal_r * cos_phi;
+                let ny = profile_normal_y;
+                let nz = profile_normal_r * sin_phi;
+                // End normal calculation
+
                 // UV coordinates
                 const u = i / segments;
                 const v = j / (points.length - 1);
 
-                vertices.push(x, y, z, color[0], color[1], color[2], u, v);
+                vertices.push(x, y, z, color[0], color[1], color[2], u, v, nx, ny, nz);
             }
         }
 
@@ -285,8 +340,9 @@ const Geometry = {
         const vertices = [];
         const faces = [];
         // Add the center vertex at (0, 0, 0)
-        // Vertex format: x, y, z, r, g, b, u, v
-        vertices.push(0, 0, 0, color[0], color[1], color[2], 0.5, 0.5);
+        // Vertex format: x, y, z, r, g, b, u, v, nx, ny, nz
+        // Normal points up (0, 0, 1) assuming circle is in XY plane
+        vertices.push(0, 0, 0, color[0], color[1], color[2], 0.5, 0.5, 0, 0, 1);
 
         // Add vertices for the circumference
         for (let i = 0; i <= segments; i++) {
@@ -298,7 +354,7 @@ const Geometry = {
             const u = (x / radius + 1) / 2;
             const v = (y / radius + 1) / 2;
 
-            vertices.push(x, y, 0, color[0], color[1], color[2], u, v);
+            vertices.push(x, y, 0, color[0], color[1], color[2], u, v, 0, 0, 1);
         }
         // Create the faces using the center vertex (index 0)
         for (let i = 1; i <= segments; i++) {
@@ -331,7 +387,10 @@ const Geometry = {
                 const y = b * Math.cos(theta);
                 const z = c * Math.sin(theta) * Math.sin(phi);
 
-                vertices.push(x, y, z, color[0], color[1], color[2], v, u);
+                // Normal for a partial sphere is its position vector
+                const normal = [x, y, z];
+
+                vertices.push(x, y, z, color[0], color[1], color[2], v, u, normal[0], normal[1], normal[2]);
             }
         }
 
@@ -349,8 +408,10 @@ const Geometry = {
         // If the sweep is less than 180, create a flat top cap to close the shape
         if (verticalSweepDegrees < 180 && verticalSweepDegrees > 0) {
             const capCenterY = b * Math.cos(endTheta);
-            const centerIndex = vertices.length / 8; // index for the new center vertex
-            vertices.push(0, capCenterY, 0, color[0], color[1], color[2], 0.5, 0.5);
+            const centerIndex = vertices.length / 11; // index for the new center vertex (11 floats)
+            
+            // Normal for the cap points straight up (in local Y)
+            vertices.push(0, capCenterY, 0, color[0], color[1], color[2], 0.5, 0.5, 0, 1, 0);
 
             // Create the fan faces for the cap
             const lastRingStartIndex = stack * (step + 1);
@@ -371,13 +432,12 @@ const Geometry = {
         const halfHeight = height / 2;
 
         // --- Vertices ---
-
         // 1. Tip vertex
-        // [x, y, z, r, g, b, u, v]
-        vertices.push(0, halfHeight, 0, color[0], color[1], color[2], 0.5, 1);
+        // [x, y, z, r, g, b, u, v, nx, ny, nz]
+        vertices.push(0, halfHeight, 0, color[0], color[1], color[2], 0.5, 1, 0, 1, 0); // Normal up
 
         // 2. Base center vertex (for the bottom cap)
-        vertices.push(0, -halfHeight, 0, color[0], color[1], color[2], 0.5, 0);
+        vertices.push(0, -halfHeight, 0, color[0], color[1], color[2], 0.5, 0, 0, -1, 0); // Normal down
         
         // 3. Base circumference vertices
         for (let i = 0; i <= segments; i++) {
@@ -389,7 +449,14 @@ const Geometry = {
             const u = (x / radius + 1) / 2;
             const v = (z / radius + 1) / 2;
 
-            vertices.push(x, -halfHeight, z, color[0], color[1], color[2], u, v);
+            // Normal for the side of the cone
+            let nx = x;
+            let ny = radius / height; // component from the slope
+            let nz = z;
+            let mag = Math.sqrt(nx*nx + ny*ny + nz*nz);
+            if (mag > 0) { nx /= mag; ny /= mag; nz /= mag; }
+
+            vertices.push(x, -halfHeight, z, color[0], color[1], color[2], u, v, nx, ny, nz);
         }
 
         // --- Faces ---
@@ -415,7 +482,7 @@ const Geometry = {
         const faces = [];
 
         // Tip of the beak
-        vertices.push(0, 0, 0, color[0], color[1], color[2], 0, 0);
+        vertices.push(0, 0, 0, color[0], color[1], color[2], 0, 0, 0, 0, 1);
 
         // Build the beak with circular cross-sections
         for (let i = 1; i <= segments; i++) {
@@ -429,7 +496,17 @@ const Geometry = {
                 const theta = (j / segments) * 2 * Math.PI;
                 const x = width * radiusScale * Math.cos(theta);
                 const y = thickness * radiusScale * Math.sin(theta);
-                vertices.push(x, y, currentZ, color[0], color[1], color[2], t, j / segments);
+                
+                // Normal for the sides
+                let nx = x;
+                let ny = y;
+                const mag = Math.sqrt(nx * nx + ny * ny);
+                if (mag > 0) {
+                    nx /= mag;
+                    ny /= mag;
+                }
+
+                vertices.push(x, y, currentZ, color[0], color[1], color[2], t, j / segments, nx, ny, 0);
             }
         }
 
@@ -453,15 +530,224 @@ const Geometry = {
 
         return { vertices, faces };
     },
+
+    generateDeformedEllipsoid: function (a, b, c, stack, step, color, amplitude, frequency) {
+        const vertices = [];
+        const faces = [];
+        for (let i = 0; i <= stack; i++) {
+            for (let j = 0; j <= step; j++) {
+                const u = i / stack;
+                const v = j / step;
+                const theta = u * Math.PI;
+                const phi = v * 2 * Math.PI;
+
+                // 1. Buat titik elipsoid dasar
+                const baseX = a * Math.sin(theta) * Math.cos(phi);
+                const baseY = b * Math.cos(theta);
+                const baseZ = c * Math.sin(theta) * Math.sin(phi);
+
+                // 2. Buat faktor "noise" untuk deformasi
+                // Kita gunakan posisi dasar sebagai input agar noise-nya tidak seragam
+                const noise = (Math.sin(baseX * frequency) + Math.cos(baseZ * frequency) + Math.sin(baseY * frequency)) / 3;
+                
+                // 3. Terapkan deformasi. 
+                // Kita tambahkan 1.0 agar bentuknya "mengembang" keluar
+                const deformation = 1.0 + (amplitude * noise);
+
+                const finalX = baseX * deformation;
+                const finalY = baseY * deformation;
+                const finalZ = baseZ * deformation;
+
+                // 4. Normal adalah vektor dari pusat ke titik akhir (untuk lighting)
+                let nx = finalX, ny = finalY, nz = finalZ;
+                const mag = Math.sqrt(nx*nx + ny*ny + nz*nz);
+                if (mag > 0) {
+                    nx /= mag; ny /= mag; nz /= mag;
+                }
+
+                // x, y, z, r, g, b, u, v, nx, ny, nz
+                vertices.push(finalX, finalY, finalZ, color[0], color[1], color[2], v, u, nx, ny, nz);
+            }
+        }
+        
+        // Face logic-nya sama persis dengan generateSphere
+        for (let i = 0; i < stack; i++) {
+            for (let j = 0; j < step; j++) {
+                const p1 = i * (step + 1) + j;
+                const p2 = p1 + 1;
+                const p3 = p1 + (step + 1);
+                const p4 = p3 + 1;
+                faces.push(p1, p2, p4, p1, p4, p3);
+            }
+        }
+        return { vertices, faces };
+    },
+
+    generateIrregularExtrudedPolygon: function(sides, radius, height, color, irregularityFactor = 0.2) {
+        const vertices = [];
+        const faces = [];
+        const numVerticesPerRing = sides; // Jumlah titik per cincin (atas/bawah)
+
+        // 1. Buat Poin-poin Dasar Poligon (Top Ring)
+        const topRingPoints = [];
+        for (let i = 0; i < sides; i++) {
+            const angle = (i / sides) * 2 * Math.PI;
+            
+            // Tambahkan irreguleritas (acak) pada radius setiap titik
+            const currentRadius = radius + (Math.random() - 0.5) * radius * irregularityFactor;
+            
+            const x = currentRadius * Math.cos(angle);
+            const z = currentRadius * Math.sin(angle);
+            topRingPoints.push([x, z]);
+        }
+
+        // 2. Vertices untuk Bagian ATAS (Top Cap)
+        // Center vertex atas
+        vertices.push(0, height / 2, 0, color[0], color[1], color[2], 0.5, 0.5, 0, 1, 0); // Normal ke atas (Y+)
+        const topCenterIndex = 0;
+
+        // Vertices di pinggir atas
+        for (let i = 0; i < sides; i++) {
+            const p = topRingPoints[i];
+            // Normal untuk top cap adalah (0,1,0)
+            vertices.push(p[0], height / 2, p[1], color[0], color[1], color[2], (p[0]/radius+1)/2, (p[1]/radius+1)/2, 0, 1, 0);
+        }
+        
+        // 3. Faces untuk Bagian ATAS (Top Cap)
+        for (let i = 0; i < sides; i++) {
+            const currentEdgeIndex = topCenterIndex + 1 + i;
+            const nextEdgeIndex = topCenterIndex + 1 + ((i + 1) % sides);
+            faces.push(topCenterIndex, currentEdgeIndex, nextEdgeIndex);
+        }
+
+        // 4. Vertices untuk Bagian BAWAH (Bottom Cap)
+        // Center vertex bawah
+        vertices.push(0, -height / 2, 0, color[0], color[1], color[2], 0.5, 0.5, 0, -1, 0); // Normal ke bawah (Y-)
+        const bottomCenterIndex = vertices.length / 11 - 1; // Index setelah semua vertex atas
+
+        // Vertices di pinggir bawah (mirip dengan atas, tapi Y-nya negatif)
+        for (let i = 0; i < sides; i++) {
+            const p = topRingPoints[i]; // Gunakan poin yang sama agar bentuknya lurus
+            // Normal untuk bottom cap adalah (0,-1,0)
+            vertices.push(p[0], -height / 2, p[1], color[0], color[1], color[2], (p[0]/radius+1)/2, (p[1]/radius+1)/2, 0, -1, 0);
+        }
+
+        // 5. Faces untuk Bagian BAWAH (Bottom Cap)
+        for (let i = 0; i < sides; i++) {
+            const currentEdgeIndex = bottomCenterIndex + 1 + i;
+            const nextEdgeIndex = bottomCenterIndex + 1 + ((i + 1) % sides);
+            // Urutan harus terbalik agar normal menghadap ke bawah
+            faces.push(bottomCenterIndex, nextEdgeIndex, currentEdgeIndex); 
+        }
+
+        // 6. Vertices dan Faces untuk SISI SAMPING (Side Walls)
+        for (let i = 0; i < sides; i++) {
+            const p = topRingPoints[i];
+            const p_next = topRingPoints[(i + 1) % sides];
+
+            const topVertexIndex = topCenterIndex + 1 + i;
+            const bottomVertexIndex = bottomCenterIndex + 1 + i;
+
+            const topNextVertexIndex = topCenterIndex + 1 + ((i + 1) % sides);
+            const bottomNextVertexIndex = bottomCenterIndex + 1 + ((i + 1) % sides);
+
+            // Hitung normal untuk sisi samping (vector tegak lurus ke garis pinggir)
+            // Ini akan sedikit tricky karena titiknya tidak simetris.
+            // Kita bisa ambil normalnya tegak lurus ke segmen garis p - p_next
+            const edgeVecX = p_next[0] - p[0];
+            const edgeVecZ = p_next[1] - p[1];
+            
+            // Normal di XY plane tegak lurus dengan edgeVec adalah (-edgeVecZ, edgeVecX)
+            let normalX = -edgeVecZ;
+            let normalZ = edgeVecX;
+            let normalY = 0; // Karena ini dinding vertikal
+
+            const magN = Math.sqrt(normalX*normalX + normalY*normalY + normalZ*normalZ);
+            if (magN > 0) {
+                normalX /= magN;
+                normalZ /= magN;
+            }
+
+            // Normal untuk setiap vertex di sisi samping
+            // Untuk memastikan konsistensi, kita perlu menghitung rata-rata normal dari face yang berbagi vertex
+            // Namun, untuk sederhana, kita bisa gunakan normal dari segmen garis saat ini untuk 4 vertex ini
+            // Ini mungkin sedikit kurang halus di sudut, tapi cukup untuk demonstrasi
+            const startIndexSideVerts = vertices.length / 11;
+            
+            // Vertex 1 (Top, Current)
+            vertices.push(p[0], height / 2, p[1], color[0], color[1], color[2], 0, 1, normalX, normalY, normalZ);
+            // Vertex 2 (Top, Next)
+            vertices.push(p_next[0], height / 2, p_next[1], color[0], color[1], color[2], 1, 1, normalX, normalY, normalZ);
+            // Vertex 3 (Bottom, Current)
+            vertices.push(p[0], -height / 2, p[1], color[0], color[1], color[2], 0, 0, normalX, normalY, normalZ);
+            // Vertex 4 (Bottom, Next)
+            vertices.push(p_next[0], -height / 2, p_next[1], color[0], color[1], color[2], 1, 0, normalX, normalY, normalZ);
+
+            // Faces untuk satu sisi samping (quad)
+            // (v1, v3, v4) (v1, v4, v2)
+            // Perhatikan bahwa kita tidak menggunakan index dari cap untuk sisi. Kita membuat vertex baru agar normalnya terpisah.
+            faces.push(startIndexSideVerts + 0, startIndexSideVerts + 2, startIndexSideVerts + 3); // Triangle 1
+            faces.push(startIndexSideVerts + 0, startIndexSideVerts + 3, startIndexSideVerts + 1); // Triangle 2
+        }
+
+
+        return { vertices, faces };
+    },
+
+    // --- Fungsi Baru: Bidang Air ---
+    generateWaterPlane: function(width, depth, segmentsW, segmentsD, waterColor) {
+        const vertices = [];
+        const faces = [];
+        const halfWidth = width / 2;
+        const halfDepth = depth / 2;
+        const segmentWidth = width / segmentsW;
+        const segmentDepth = depth / segmentsD;
+
+        for (let i = 0; i <= segmentsW; i++) {
+            for (let j = 0; j <= segmentsD; j++) {
+                const x = i * segmentWidth - halfWidth;
+                const z = j * segmentDepth - halfDepth;
+                const y = 0; // Bidang datar di Y=0
+
+                // Normal selalu ke atas untuk bidang horizontal (0, 1, 0)
+                const nx = 0;
+                const ny = 1;
+                const nz = 0;
+
+                // UV coordinates
+                const u = i / segmentsW;
+                const v = j / segmentsD;
+
+                // x, y, z, r, g, b, u, v, nx, ny, nz
+                vertices.push(x, y, z, waterColor[0], waterColor[1], waterColor[2], u, v, nx, ny, nz);
+            }
+        }
+
+        // Generate Faces
+        for (let i = 0; i < segmentsW; i++) {
+            for (let j = 0; j < segmentsD; j++) {
+                const p1 = i * (segmentsD + 1) + j;
+                const p2 = p1 + 1;
+                const p3 = (i + 1) * (segmentsD + 1) + j;
+                const p4 = p3 + 1;
+
+                faces.push(p1, p2, p4);
+                faces.push(p1, p4, p3);
+            }
+        }
+
+        return { vertices, faces };
+    },
 };
 
 // --- Prinplup PART CLASS ---
 // Represents a single drawable part of the Prinplup model.
 class PrinplupPart {
-    constructor(gl, geometry, texture = null) {
+    constructor(gl, geometry, texture = null, animationType = 'bodyBreathe') {
         this.gl = gl;
         this.geometry = geometry;
         this.texture = texture;
+        this.animationType = animationType;
         this.modelMatrix = LIBS.get_I4();
         this.buffers = this.createBuffers();
     }
@@ -483,15 +769,48 @@ class PrinplupPart {
         this.modelMatrix = transformMatrix;
     }
 
-    draw(shader, parentMatrix) {
+    draw(shader, parentMatrix, animValues = {}) {
         const gl = this.gl;
-        const finalMatrix = LIBS.multiply(this.modelMatrix, parentMatrix);
+        // 1. Buat matriks animasi lokal (mulai sebagai identitas)
+        const animMatrix = LIBS.get_I4();
+        // 2. Terapkan animasi yang TEPAT berdasarkan tipe bagian ini
+        switch (this.animationType) {
+            case 'bodyBreathe':
+                // Pernapasan tubuh: Terapkan translasi Y
+                LIBS.translateY(animMatrix, animValues.body || 0.0);
+                break;
+            case 'eyeBreathe':
+                // Pernapasan mata: Terapkan skala Y (memipih/merenggang)
+                LIBS.scaleY(animMatrix, animValues.eye || 1.0);
+                break;
+            case 'diskBreathe':
+                // Pernapasan disk: Terapkan skala uniform (berdenyut)
+                LIBS.scale(animMatrix, animValues.disk || 1.0);
+                break;
+            case 'floatingIce':
+                // Animasi pulau mengambang: Terapkan translasi Y
+                LIBS.translateY(animMatrix, animValues.floatingIce || 0.0);
+                break;
+            case 'none':
+            default:
+                // Tidak melakukan apa-apa, animMatrix tetap identitas
+                break;
+        }
+        // 3. Gabungkan matriks:
+        // Urutan: (parent) * (local_transform) * (animasi)
+        // Ini menerapkan animasi di ruang lokal objek (sebelum ditranslasi/rotasi)
+        // Ini adalah cara yang benar untuk "scale in place".
+        const localAnimatedMatrix = LIBS.multiply(this.modelMatrix, animMatrix);
+        var finalMatrix = LIBS.multiply(localAnimatedMatrix, parentMatrix);
         gl.uniformMatrix4fv(shader.locations.Mmatrix, false, finalMatrix);
-
         gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.vertex);
-        gl.vertexAttribPointer(shader.locations.position, 3, gl.FLOAT, false, 4 * 8, 0);
-        gl.vertexAttribPointer(shader.locations.color, 3, gl.FLOAT, false, 4 * 8, 3 * 4);
-        gl.vertexAttribPointer(shader.locations.texcoord, 2, gl.FLOAT, false, 4 * 8, 6 * 4);
+        
+        // Stride is now 11 floats (3 pos, 3 color, 2 uv, 3 normal)
+        const stride = 4 * (3 + 3 + 2 + 3); 
+        gl.vertexAttribPointer(shader.locations.position, 3, gl.FLOAT, false, stride, 0);
+        gl.vertexAttribPointer(shader.locations.color, 3, gl.FLOAT, false, stride, 3 * 4);
+        gl.vertexAttribPointer(shader.locations.texcoord, 2, gl.FLOAT, false, stride, 6 * 4);
+        gl.vertexAttribPointer(shader.locations.normal, 3, gl.FLOAT, false, stride, 8 * 4);
 
 
         if (this.texture) {
@@ -619,8 +938,8 @@ class Prinplup {
                 })(), // Slightly raise the body
                 texture: headTexture
             },
-            { geom: Geometry.generateCircle(0.17, 20, C.WHITE), trans: createOrientedTransform(0.6, 1.0, 1.15, -0.4, 0.25)},
-            { geom: Geometry.generateCircle(0.17, 20, C.WHITE), trans: createOrientedTransform(0.6, 1.0, 1.15, 0.4, 0.25)},
+            { geom: Geometry.generateCircle(0.17, 20, C.WHITE), trans: createOrientedTransform(0.6, 1.1, 1.15, -0.4, 0.25)},
+            { geom: Geometry.generateCircle(0.17, 20, C.WHITE), trans: createOrientedTransform(0.6, 1.1, 1.15, 0.4, 0.25)},
             // { geom: Geometry.generateCircle(0.17, 20, C.HEAD), trans: createOrientedTransform(0.6, 1.2, 1.42, 0.4, -0.4)},
             // { geom: Geometry.generateCircle(0.17, 20, C.BEAK), trans: createOrientedTransform(0.6, -1, 1.5, -0.4, -0.4)},
             { geom: Geometry.generateCircle(0.17, 20, C.WHITE), trans: createTransform(-0.4, -0.4, 0.94)},
@@ -634,49 +953,49 @@ class Prinplup {
                 // LIBS.rotateY(m, LIBS.degToRad(60));
                 LIBS.rotateZ(m, LIBS.degToRad(120));
                 return m;
-            })()},
+            })(), animationType: 'bodyBreathe'},
             { geom: Geometry.generateSphere(0.7, 0.12, 0.55, 20, 20, C.BEAK), trans: (() => {
                 let m = createTransform(0.2, 2.1, 0);
                 // LIBS.rotateX(m, LIBS.degToRad(60))
                 // LIBS.rotateY(m, LIBS.degToRad(60));
                 LIBS.rotateZ(m, LIBS.degToRad(60));
                 return m;
-            })()},
+            })(), animationType: 'bodyBreathe'},
 
             // Eyes
             { geom: Geometry.generateAngryEye(0.15, 0.2, 0.1, 10, 10, 130, C.WHITE), trans: (() => {
                 let m = createTransform(-0.3, 1.9, 0.4);
                 LIBS.rotateZ(m, LIBS.degToRad(330));
                 return m;
-            }) () },
+            }) (), animationType: 'eyeBreathe' },
             { geom: Geometry.generateAngryEye(0.1, 0.15, 0.12, 10, 10, 130, C.HEAD), trans: (() => {
                 let m = createTransform(-0.33, 1.9, 0.42);
                 LIBS.rotateZ(m, LIBS.degToRad(330));
                 return m;
-            }) () },
+            }) (), animationType: 'eyeBreathe' },
             { geom: Geometry.generateAngryEye(0.07, 0.12, 0.12, 10, 10, 130, C.BLACK), trans: (() => {
                 let m = createTransform(-0.3, 1.9, 0.45);
                 LIBS.rotateZ(m, LIBS.degToRad(330));
                 return m;
-            }) () },
-            { geom: Geometry.generateSphere(0.03, 0.03, 0.07, 10, 10, C.WHITE), trans: createTransform(-0.3, 1.93, 0.52)},
+            }) (), animationType: 'eyeBreathe' },
+            { geom: Geometry.generateSphere(0.03, 0.03, 0.07, 10, 10, C.WHITE), trans: createTransform(-0.3, 1.93, 0.52), animationType: 'eyeBreathe'},
 
             { geom: Geometry.generateAngryEye(0.15, 0.2, 0.1, 10, 10, 130, C.WHITE), trans: (() => {
                 let m = createTransform(0.3, 1.9, 0.4);
                 LIBS.rotateZ(m, LIBS.degToRad(30));
                 return m;
-            }) () },
+            }) (), animationType: 'eyeBreathe' },
             { geom: Geometry.generateAngryEye(0.1, 0.15, 0.12, 10, 10, 130, C.HEAD), trans: (() => {
                 let m = createTransform(0.33, 1.9, 0.42);
                 LIBS.rotateZ(m, LIBS.degToRad(30));
                 return m;
-            }) () },
+            }) (), animationType: 'eyeBreathe' },
             { geom: Geometry.generateAngryEye(0.07, 0.12, 0.12, 10, 10, 130, C.BLACK), trans: (() => {
                 let m = createTransform(0.3, 1.9, 0.45);
                 LIBS.rotateZ(m, LIBS.degToRad(30));
                 return m;
-            }) () },
-            { geom: Geometry.generateSphere(0.03, 0.03, 0.07, 10, 10, C.WHITE), trans: createTransform(0.3, 1.93, 0.52)},
+            }) (), animationType: 'eyeBreathe' },
+            { geom: Geometry.generateSphere(0.03, 0.03, 0.07, 10, 10, C.WHITE), trans: createTransform(0.3, 1.93, 0.52), animationType: 'eyeBreathe'},
 
             // Beak: Beak + Cone for Top and Front
             { geom: Geometry.generateBeak(0.22, 0.35, 0.55, 20, C.BEAK), trans: (() => {
@@ -716,14 +1035,14 @@ class Prinplup {
             },
 
             // Legs (Body-Feet)
-            { geom: Geometry.generateSphere(0.3, 0.8, 0.4, 10, 10, C.BODY), trans: createTransform(-0.65, -1.2, 0.1)},
-            { geom: Geometry.generateSphere(0.3, 0.8, 0.4, 10, 10, C.BODY), trans: createTransform(0.65, -1.2, 0.1)},
+            { geom: Geometry.generateSphere(0.3, 0.8, 0.4, 10, 10, C.BODY), trans: createTransform(-0.65, -1.2, 0.1), animationType: 'none'},
+            { geom: Geometry.generateSphere(0.3, 0.8, 0.4, 10, 10, C.BODY), trans: createTransform(0.65, -1.2, 0.1), animationType: 'none'},
             // Feet
-            { geom: Geometry.generateSphere(0.3, 0.12, 0.35, 10, 10, C.FEET), trans: createTransform(-0.65, -1.9, 0.24)},
-            { geom: Geometry.generateSphere(0.3, 0.1, 0.5, 10, 10, C.FEET), trans: createTransform(-0.65, -2, 0.4)},
+            { geom: Geometry.generateSphere(0.3, 0.12, 0.35, 10, 10, C.FEET), trans: createTransform(-0.65, -1.9, 0.24), animationType: 'none'},
+            { geom: Geometry.generateSphere(0.3, 0.1, 0.5, 10, 10, C.FEET), trans: createTransform(-0.65, -2, 0.4), animationType: 'none'},
 
-            { geom: Geometry.generateSphere(0.3, 0.12, 0.35, 10, 10, C.FEET), trans: createTransform(0.65, -1.9, 0.24)},
-            { geom: Geometry.generateSphere(0.3, 0.1, 0.6, 10, 10, C.FEET), trans: createTransform(0.65, -2, 0.4)},
+            { geom: Geometry.generateSphere(0.3, 0.12, 0.35, 10, 10, C.FEET), trans: createTransform(0.65, -1.9, 0.24), animationType: 'none'},
+            { geom: Geometry.generateSphere(0.3, 0.1, 0.6, 10, 10, C.FEET), trans: createTransform(0.65, -2, 0.4), animationType: 'none'},
 
             // Sirip Belakang
             {
@@ -748,15 +1067,113 @@ class Prinplup {
             }
         ]
         partDefinitions.forEach(def => {
-            const part = new PrinplupPart(gl, def.geom, def.texture);
+            // Ambil tipe animasi, atau default ke 'bodyBreathe'
+            const animType = def.animationType || 'bodyBreathe';
+            const part = new PrinplupPart(gl, def.geom, def.texture, animType);
             part.setTransform(def.trans);
             this.parts.push(part);
         });
     }
 
-    draw(shader) {
+    draw(shader, animValues, parentMatrix = LIBS.get_I4()) {
+        // 'parentMatrix' sekarang adalah matriks animasi pulau es (atau Identity)
+        // 'this.modelMatrix' adalah matriks rotasi global dari mouse drag
+        
+        // Gabungkan matriks rotasi mouse DENGAN matriks parent dari pulau es
+        const finalParentMatrix = LIBS.multiply(parentMatrix, this.modelMatrix);
         this.parts.forEach(part => {
-            part.draw(shader, this.modelMatrix);
+            part.draw(shader, finalParentMatrix, animValues);
+        });
+    }
+}
+
+// --- ENVIRONMENT CONTAINER CLASS ---
+// Mengelola semua bagian dari environment
+class Environment {
+    constructor(gl, renderer) {
+        this.gl = gl;
+        this.renderer = renderer;
+        this.parts = [];
+        this.modelMatrix = LIBS.get_I4(); // Matriks environment (statis)
+        this.animationTime = 0; // Waktu untuk melacak animasi
+        this.iceIslandAnimMatrix = LIBS.get_I4(); // Untuk menyimpan matriks animasi pulau es secara terpisah
+        this.initParts();
+    }
+
+    initParts() {
+        const gl = this.gl;
+        
+        const createTransform = (x, y, z) => {
+            const m = LIBS.get_I4();
+            LIBS.translateX(m, x);
+            LIBS.translateY(m, y);
+            LIBS.translateZ(m, z);
+            return m;
+        };
+
+        const C = {
+            SNOW_WHITE: [0.95, 0.98, 1.0], 
+            ICE_BLUE: [0.6, 0.8, 0.95], 
+            WATER_BLUE: [0.192, 0.502, 0.647]
+        };
+
+        const partDefinitions = [
+            // 1. Pulau Es
+            {
+                geom: Geometry.generateIrregularExtrudedPolygon(
+                    6, 6, 1, C.SNOW_WHITE, 0.5
+                ),
+                trans: createTransform(0, -2.7, 0), 
+                animationType: 'floatingIce'
+            },
+            // 2. Water
+            {
+                geom: Geometry.generateWaterPlane(
+                    25, 25, 1, 1, C.WATER_BLUE
+                ),
+                trans: createTransform(0, -2.6, 0),
+                animationType: 'static'
+            },
+        ];
+
+        partDefinitions.forEach(def => {
+            const part = new PrinplupPart(gl, def.geom, def.texture || null, def.animationType);
+            part.setTransform(def.trans);
+            this.parts.push(part);
+        });
+    }
+
+    // Method untuk Renderer mengambil matriks animasi pulau es
+    getIceIslandAnimMatrix() {
+        return this.iceIslandAnimMatrix;
+    }
+
+    draw(shader) {
+        // --- Logika Animasi Environment ada di sini ---
+        this.animationTime += 0.02; // Update waktu internal environment
+        
+        // 1. Hitung nilai animasi
+        const amplitude = 0.1; // Seberapa tinggi/rendah gerakannya
+        const floatY = Math.sin(this.animationTime) * amplitude; // Nilai naik/turun
+
+        // 1. Hitung matriks animasi HANYA untuk pulau es
+        const iceAnimMatrix = LIBS.get_I4();
+        LIBS.translateY(iceAnimMatrix, floatY);
+
+        // 2. Simpan matriks ini agar Renderer bisa mengambilnya
+        this.iceIslandAnimMatrix = iceAnimMatrix; 
+        
+        // 3. Buat objek animValues (hanya nilai mentah)
+        const animValues = {
+            floatingIce: floatY 
+        };
+        // --- SELESAI UBAH ---
+
+        // 'this.modelMatrix' tetap statis (Identity)
+        this.parts.forEach(part => {
+            // Teruskan nilai animasi mentah. PrinplupPart.draw akan membuat
+            // matriks animasinya sendiri berdasarkan nilai ini.
+            part.draw(shader, this.modelMatrix, animValues); 
         });
     }
 }
@@ -774,11 +1191,13 @@ class Renderer {
 
         this.shader = this.createShaderProgram();
         this.Prinplup = new Prinplup(this.gl, this);
+        this.environment = new Environment(this.gl, this);
 
         this.viewMatrix = LIBS.get_I4();
-        LIBS.translateZ(this.viewMatrix, -8);
+        LIBS.translateZ(this.viewMatrix, -20);
         // LIBS.rotateY(this.viewMatrix, Math.PI / 2);
         this.projMatrix = LIBS.get_projection(40, this.canvas.width / this.canvas.height, 1, 100);
+        this.animationTime = 0;
 
         this.initInputHandlers();
         this.startRenderLoop();
@@ -790,27 +1209,43 @@ class Renderer {
             attribute vec3 position;
             attribute vec3 color;
             attribute vec2 texcoord;
+            attribute vec3 normal;
             uniform mat4 Mmatrix, Vmatrix, Pmatrix;
             varying vec3 vColor;
             varying vec2 vTexcoord;
+            varying vec3 vNormal;
+            varying vec3 v_worldPosition;
             void main(void) {
                 gl_Position = Pmatrix * Vmatrix * Mmatrix * vec4(position, 1.);
                 vColor = color;
                 vTexcoord = texcoord;
+                vNormal = mat3(Mmatrix) * normal;
+                v_worldPosition = (Mmatrix * vec4(position, 1.)).xyz;
             }`;
         const fsSource = `
             precision mediump float;
             varying vec3 vColor;
             varying vec2 vTexcoord;
+            varying vec3 vNormal;
+            varying vec3 v_worldPosition;
             uniform sampler2D sampler;
             uniform int u_useTexture;
+            uniform vec3 u_lightPosition;
 
             void main(void) {
+                vec3 normal = normalize(vNormal);
+                vec3 lightDirection = normalize(u_lightPosition - v_worldPosition);
+                float diff = max(dot(normal, lightDirection), 0.0);
+                vec3 diffuse = diff * vec3(1.0, 1.0, 1.0);
+
+                vec4 baseColor;
                 if (u_useTexture == 1) {
-                    gl_FragColor = texture2D(sampler, vTexcoord);
+                    baseColor = texture2D(sampler, vTexcoord);
                 } else {
-                    gl_FragColor = vec4(vColor, 1.);
+                    baseColor = vec4(vColor, 1.);
                 }
+                // Apply ambient light (0.9) + diffuse light (0.2)
+                gl_FragColor = vec4(baseColor.rgb * (0.9 + diffuse * 0.2), baseColor.a);
             }`;
 
         const vs = this.compileShader(vsSource, gl.VERTEX_SHADER);
@@ -827,16 +1262,19 @@ class Renderer {
             position: gl.getAttribLocation(program, "position"),
             color: gl.getAttribLocation(program, "color"),
             texcoord: gl.getAttribLocation(program, "texcoord"),
+            normal: gl.getAttribLocation(program, "normal"),
             Pmatrix: gl.getUniformLocation(program, "Pmatrix"),
             Vmatrix: gl.getUniformLocation(program, "Vmatrix"),
             Mmatrix: gl.getUniformLocation(program, "Mmatrix"),
             sampler: gl.getUniformLocation(program, "sampler"),
-            u_useTexture: gl.getUniformLocation(program, "u_useTexture")
+            u_useTexture: gl.getUniformLocation(program, "u_useTexture"),
+            u_lightPosition: gl.getUniformLocation(program, "u_lightPosition")
         };
 
         gl.enableVertexAttribArray(locations.position);
         gl.enableVertexAttribArray(locations.color);
         gl.enableVertexAttribArray(locations.texcoord);
+        gl.enableVertexAttribArray(locations.normal);
 
         return { program, locations };
     }
@@ -902,6 +1340,10 @@ class Renderer {
             const rotationMatrix = LIBS.get_I4();
             LIBS.rotateY(rotationMatrix, THETA);
             LIBS.rotateX(rotationMatrix, PHI);
+
+            
+            // LIBS.translateY(rotationMatrix, breathOffset);
+
             this.Prinplup.modelMatrix = rotationMatrix;
         };
     }
@@ -913,8 +1355,30 @@ class Renderer {
         gl.clearColor(0.0, 0.0, 0.0, 0.0);
         gl.clearDepth(1.0);
 
-        const render = () => {
+        const render = (now) => {
             this.updateRotation();
+            this.environment.draw(this.shader);
+
+            // --- HITUNG LOGIKA PERNAPASAN DI SINI ---
+            const timeInSeconds = now * 0.001;
+            const bodyBreathSpeed = 1.5; 
+            const bodyBreathAmount = 0.04;
+            const bodyBreathOffset  = Math.sin(timeInSeconds * bodyBreathSpeed * Math.PI) * bodyBreathAmount;
+
+            const eyeBreathSpeed = 1.5;
+            const eyeBreathAmount = 0.02;
+            const eyeBreathScale = 1.0 + Math.sin(timeInSeconds * eyeBreathSpeed * Math.PI) * eyeBreathAmount;
+
+            const diskBreathSpeed = 1.0; // Lebih cepat
+            const diskBreathAmount = 0.01; // Skala antara 0.97 dan 1.03
+            const diskBreathScale = 1.0 + Math.cos(timeInSeconds * diskBreathSpeed * Math.PI) * diskBreathAmount; // Pakai cos() agar beda fase
+            
+            const animationValues = {
+                body: bodyBreathOffset,
+                eye: eyeBreathScale,
+                disk: diskBreathScale
+            };
+            // --- AKHIR BLOK PERNAPASAN ---
 
             gl.viewport(0, 0, this.canvas.width, this.canvas.height);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -922,7 +1386,13 @@ class Renderer {
             gl.uniformMatrix4fv(this.shader.locations.Pmatrix, false, this.projMatrix);
             gl.uniformMatrix4fv(this.shader.locations.Vmatrix, false, this.viewMatrix);
 
-            this.Prinplup.draw(this.shader);
+            // Set the light position
+            gl.uniform3fv(this.shader.locations.u_lightPosition, [5, 15, 10]);
+
+            const iceParentMatrix = this.environment.getIceIslandAnimMatrix();
+
+            this.Prinplup.draw(this.shader, animationValues, iceParentMatrix);
+            this.environment.draw(this.shader);
 
             requestAnimationFrame(render);
         };
@@ -932,5 +1402,7 @@ class Renderer {
 
 // --- START THE APPLICATION ---
 window.addEventListener('load', () => {
-    new Renderer('myCanvas');
+    new Renderer('prinplup-canvas');
 });
+
+})();
