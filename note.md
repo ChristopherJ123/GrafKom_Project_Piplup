@@ -17,6 +17,13 @@ prinplup_uv_map_texture.png --> buatan michelle masih belum pas
 prinplup_texture_no_eyes.png --> ori tapi diubah jadi 1024x2048
 prinplup_texture_no_eyes_.png --> ori 2048x2048
 
+### empoleon
+flapAngle, 
+
+
+### all
+get_projection
+
 
 ### Penilaian Project UAS
 - Three JS

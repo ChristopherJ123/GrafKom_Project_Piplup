@@ -1233,7 +1233,7 @@
             this.environment = new Environment(this.gl, this);
 
             this.viewMatrix = LIBS.get_I4();
-            LIBS.translateZ(this.viewMatrix, -20);
+            LIBS.translateZ(this.viewMatrix, -10);
             this.projMatrix = LIBS.get_projection(40, this.canvas.width / this.canvas.height, 1, 100);
             this.animationTime = 0;
 

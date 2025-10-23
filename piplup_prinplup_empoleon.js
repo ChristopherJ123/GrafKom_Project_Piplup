@@ -868,7 +868,7 @@
             return { vertices, faces };
         },
 
-            generateHalfHyperboloid: function (a, b, c, stack, step, color, minHeight = 0, maxHeight = 1) {
+        generateHalfHyperboloid: function (a, b, c, stack, step, color, minHeight = 0, maxHeight = 1) {
             const vertices = [];
             const faces = [];
 
@@ -2534,7 +2534,7 @@
                 LIBS.translateX(T_down_left, -pivotX);
 
                 const R_left = LIBS.get_I4();
-                LIBS.rotateZ(R_left, flapAngle); // Rotate around Z axis
+                LIBS.rotateY(R_left, flapAngle); // Rotate around Z axis
 
                 // Combine for animation matrix: M_anim = T_up * R_z * T_down
                 let leftAnim = LIBS.multiply(R_left, T_down_left);
@@ -2558,7 +2558,7 @@
                 LIBS.translateX(T_down_right, pivotX); // Mirrored X
 
                 const R_right = LIBS.get_I4();
-                LIBS.rotateZ(R_right, -flapAngle); // Opposite direction
+                LIBS.rotateY(R_right, flapAngle); // Opposite direction
 
                 // Combine for animation matrix: M_anim = T_up * R_z * T_down
                 let rightAnim = LIBS.multiply(R_right, T_down_right);
@@ -2605,6 +2605,8 @@
                 WATER_BLUE: [0.192, 0.502, 0.647]
             };
 
+            const waterTexture = this.renderer.loadTexture('Resource/water-texture.png');
+
             // 1. Ice Island
             const iceIslandNode = new ModelNode(gl, Geometry.generateIrregularExtrudedPolygon(8, 15, 1, C.SNOW_WHITE, 0.5));
             iceIslandNode.setBaseTransform(LIBS.get_I4());
@@ -2612,7 +2614,7 @@
             this.animatedNodes.iceIsland = iceIslandNode; // Save for animation
 
             // 2. Water
-            const waterNode = new ModelNode(gl, Geometry.generateWaterPlane(200, 200, 1, 1, C.WATER_BLUE));
+            const waterNode = new ModelNode(gl, Geometry.generateWaterPlane(200, 200, 1, 1, C.WATER_BLUE), waterTexture);
             waterNode.setBaseTransform(LIBS.get_I4());
             this.rootNode.addChild(waterNode);
         }
@@ -2687,18 +2689,27 @@
 
             // NEW: Create a static matrix for Piplup's offset
             this.piplupModelMatrix = LIBS.get_I4();
-            LIBS.translateX(this.piplupModelMatrix, -5.0); // Position 5 units to the left
+            LIBS.translateX(this.piplupModelMatrix, -6.0); // Position 5 units to the left
             LIBS.scale(this.piplupModelMatrix, 0.9); // Make it 90% of the size
 
-            this.viewMatrix = LIBS.get_I4();
-            LIBS.translateZ(this.viewMatrix, -20);
-            LIBS.translateY(this.viewMatrix, -2);
-            this.projMatrix = LIBS.get_projection(40, this.canvas.width / this.canvas.height, 1, 100);
+            this.prinplupModelMatrix = LIBS.get_I4();
+            LIBS.translateX(this.prinplupModelMatrix, -1.0);
+            LIBS.translateY(this.prinplupModelMatrix, -0.04);
+            LIBS.scale(this.prinplupModelMatrix, 1.2);
 
             // Static matrix for Empoleon
             this.empoleonModelMatrix = LIBS.get_I4();
-            LIBS.translateX(this.empoleonModelMatrix, 5.0); // Position 5 units to the right
-            LIBS.scale(this.empoleonModelMatrix, 1.0); // Keep it at 100% size
+            LIBS.translateX(this.empoleonModelMatrix, 6.0); // Position 5 units to the right
+            LIBS.translateY(this.empoleonModelMatrix, -0.4); // Position 5 units to the right
+            LIBS.scale(this.empoleonModelMatrix, 1.9); // Keep it at 100% size
+            
+            this.viewMatrix = LIBS.get_I4();
+            LIBS.translateZ(this.viewMatrix, -16);
+            LIBS.translateY(this.viewMatrix, -5);
+            LIBS.translateX(this.viewMatrix, 1);
+            this.projMatrix = LIBS.get_projection(45, this.canvas.width / this.canvas.height, 1, 100);
+            this.animationTime = 0;
+            this.keysPressed = {};
 
             this.initInputHandlers();
             this.startRenderLoop();
@@ -2930,35 +2941,76 @@
         initInputHandlers() {
             let drag = false;
             let x_prev, y_prev;
-            let dX = 0, dY = 0;
+            let dX_mouse = 0, dY_mouse = 0;
             let THETA = 0, PHI = 0;
             const FRICTION = 0.15;
+            const KEY_ROTATION_SPEED = 0.002;
 
             this.canvas.onmousedown = (e) => { drag = true; x_prev = e.pageX; y_prev = e.pageY; };
             this.canvas.onmouseup = () => { drag = false; };
             this.canvas.onmouseout = () => { drag = false; };
             this.canvas.onmousemove = (e) => {
                 if (!drag) return;
-                dX = (e.pageX - x_prev) * 2 * Math.PI / this.canvas.width;
-                dY = (e.pageY - y_prev) * 2 * Math.PI / this.canvas.height;
-                THETA += dX;
-                PHI += dY;
+                // Calculate mouse delta only
+                dX_mouse = (e.pageX - x_prev) * 2 * Math.PI / this.canvas.width;
+                dY_mouse = (e.pageY - y_prev) * 2 * Math.PI / this.canvas.height;
+                // Don't directly add to THETA/PHI here, let updateEnvironmentRotation handle it
                 x_prev = e.pageX;
                 y_prev = e.pageY;
+                e.preventDefault();
             };
 
-            this.updateRotation = () => {
-                if (!drag) {
-                    dX *= (1 - FRICTION);
-                    dY *= (1 - FRICTION);
-                    THETA += dX;
-                    PHI += dY;
-                }
-                const rotationMatrix = LIBS.get_I4();
-                LIBS.rotateY(rotationMatrix, THETA);
-                LIBS.rotateX(rotationMatrix, PHI);
+            // --- Keyboard Event Listeners (Keep as before, just track keys) ---
+            const keyDownHandler = (e) => {
+                this.keysPressed[e.key.toLowerCase()] = true;
+            };
+            const keyUpHandler = (e) => {
+                this.keysPressed[e.key.toLowerCase()] = false;
+            };
+            window.addEventListener("keydown", keyDownHandler, false);
+            window.addEventListener("keyup", keyUpHandler, false);
 
-                // MODIFIED: Apply the rotation to the *entire environment*
+            // --- HAPUS FUNGSI LAMA INI ---
+            // this.updateMouseRotation = () => { ... };
+            // this.updateCameraRotation = () => { ... };
+
+            // --- TAMBAHKAN FUNGSI BARU INI (Gabungan) ---
+            this.updateEnvironmentRotation = () => {
+                let dX_key = 0, dY_key = 0; // Keyboard delta
+
+                // Calculate keyboard delta
+                if (this.keysPressed['a']) { dX_key += KEY_ROTATION_SPEED; }
+                if (this.keysPressed['d']) { dX_key -= KEY_ROTATION_SPEED; }
+                if (this.keysPressed['w']) { dY_key += KEY_ROTATION_SPEED; }
+                if (this.keysPressed['s']) { dY_key -= KEY_ROTATION_SPEED; }
+
+                // Apply friction if mouse is not dragging
+                if (!drag) {
+                    dX_mouse *= (1 - FRICTION);
+                    dY_mouse *= (1 - FRICTION);
+                }
+
+                // Combine deltas from mouse and keyboard
+                const totalDX = dX_mouse + dX_key;
+                const totalDY = dY_mouse + dY_key;
+
+                // Update angles
+                THETA += totalDX;
+                PHI += totalDY;
+
+                // Limit vertical rotation (optional but recommended)
+                PHI = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, PHI));
+
+                // Reset mouse delta after applying (keyboard delta is recalculated each frame)
+                dX_mouse = 0;
+                dY_mouse = 0;
+
+                // Create the final rotation matrix
+                const rotationMatrix = LIBS.get_I4();
+                LIBS.rotateY(rotationMatrix, THETA); // Horizontal rotation
+                LIBS.rotateX(rotationMatrix, PHI);   // Vertical rotation
+
+                // Apply the combined rotation to the environment's model matrix
                 this.environment.modelMatrix = rotationMatrix;
             };
         }
@@ -2971,7 +3023,7 @@
             gl.clearDepth(1.0);
 
             const render = (now) => {
-                this.updateRotation();
+                this.updateEnvironmentRotation();
 
                 // --- CALCULATE ANIMATION VALUES ---
                 const timeInSeconds = now * 0.001;
@@ -3066,14 +3118,14 @@
                 // Get the final animated matrix of the ice island
                 const iceParentMatrix = this.environment.getIceIslandWorldMatrix();
 
-                // Draw the models
-                this.Prinplup.draw(this.shader, iceParentMatrix);
-
                 // Draw Piplup
                 // First, combine the ice matrix with Piplup's static offset
                 const piplupParentMatrix = LIBS.multiply(this.piplupModelMatrix, iceParentMatrix);
                 // Then, draw Piplup using this final matrix
                 this.piplup.draw(this.shader, piplupParentMatrix);
+
+                const prinplupParentMatrix = LIBS.multiply(this.prinplupModelMatrix, iceParentMatrix);
+                this.Prinplup.draw(this.shader, prinplupParentMatrix);
 
                 // Draw Empoleon
                 const empoleonParentMatrix = LIBS.multiply(this.empoleonModelMatrix, iceParentMatrix);
