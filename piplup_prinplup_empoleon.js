@@ -5,7 +5,7 @@
 // (Geometry functions: generateSphere, generateBeak, etc. are all unchanged)
 // ... (Your entire Geometry object goes here, unchanged. I've omitted it for brevity.)
     const Geometry = {
-        generateSphere: function (a, b, c, stack, step, color) {
+        generateSphere: function (a, b, c, stack, step, color, textureOffset = 0) {
             const vertices = [];
             const faces = [];
             for (let i = 0; i <= stack; i++) {
@@ -22,7 +22,7 @@
                     // Normal for a sphere is just its position vector (normalized)
                     const normal = [x, y, z];
 
-                    vertices.push(x, y, z, color[0], color[1], color[2], v+ 0.25, u - 1.0, normal[0], normal[1], normal[2]);
+                    vertices.push(x, y, z, color[0], color[1], color[2], v + textureOffset, u - 1.0, normal[0], normal[1], normal[2]);
                 }
             }
             for (let i = 0; i < stack; i++) {
@@ -1025,7 +1025,7 @@
             bodyGeometry.addChild(rightDecoCircle);
 
             // 2. Head (Child of the Body)
-            const headNode = new ModelNode(gl, Geometry.generateSphere(0.8, 0.8, 0.8, 20, 20, C.HEAD), headTexture);
+            const headNode = new ModelNode(gl, Geometry.generateSphere(0.8, 0.8, 0.8, 20, 20, C.HEAD, 0.25), headTexture);
             const headTransform = createTransform(0, 1.5, 0); // Head is 1.5 units *above the body*
             headNode.setLocalTransform(headTransform);
             bodyNode.addChild(headNode);
