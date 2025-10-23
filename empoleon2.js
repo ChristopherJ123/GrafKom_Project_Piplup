@@ -30,6 +30,88 @@ const Geometry = {
         return { vertices, faces };
     },
 
+    generateTriBeak: function (baseWidth, height, depth, color) {
+    const vertices = [];
+    const faces = [];
+
+    // Triangular beak (3 sisi)
+    // baseWidth = lebar bawah
+    // height = tinggi vertikal
+    // depth = panjang ke depan
+    // color = [r, g, b]
+
+    const halfBase = baseWidth / 2;
+
+    // Titik dasar (segitiga bawah)
+    const v0 = [-halfBase, -height / 2, 0];     // kiri bawah belakang
+    const v1 = [halfBase, -height / 2, 0];      // kanan bawah belakang
+    const v2 = [0, -height / 2, -depth];        // tengah bawah depan (arah paruh)
+    
+    // Titik puncak
+    const vTop = [0, height / 2, -depth / 2];   // atas sedikit ke depan
+
+    const verts = [v0, v1, v2, vTop];
+    for (let [x, y, z] of verts) {
+        vertices.push(x, y, z, color[0], color[1], color[2], 0, 0);
+    }
+
+    // Faces — hanya 3 sisi segitiga (tanpa alas jika ingin paruh terbuka)
+    // sisi kiri
+    faces.push(0, 2, 3);
+    // sisi kanan
+    faces.push(1, 3, 2);
+    // sisi bawah (opsional, bisa dihapus agar terbuka)
+    faces.push(0, 1, 2);
+
+    return { vertices, faces };
+},
+
+    generateTriangularPrism: function (baseWidth, height, depth, color) {
+    const vertices = [];
+    const faces = [];
+
+    // Triangular prism
+    // baseWidth = lebar dasar segitiga
+    // height = tinggi segitiga
+    // depth = panjang (jarak antara dua segitiga)
+    // color = [r, g, b]
+
+    const halfBase = baseWidth / 2;
+    const halfDepth = depth / 2;
+
+    // ===== FRONT TRIANGLE =====
+    const f0 = [-halfBase, -height / 2, halfDepth]; // kiri bawah depan
+    const f1 = [halfBase, -height / 2, halfDepth];  // kanan bawah depan
+    const f2 = [0, height / 2, halfDepth];          // atas depan
+
+    // ===== BACK TRIANGLE =====
+    const b0 = [-halfBase, -height / 2, -halfDepth]; // kiri bawah belakang
+    const b1 = [halfBase, -height / 2, -halfDepth];  // kanan bawah belakang
+    const b2 = [0, height / 2, -halfDepth];          // atas belakang
+
+    const verts = [f0, f1, f2, b0, b1, b2];
+    for (let [x, y, z] of verts) {
+        vertices.push(x, y, z, color[0], color[1], color[2], 0, 0);
+    }
+
+    // ===== FACES =====
+    // front triangle
+    faces.push(0, 1, 2);
+    // back triangle
+    faces.push(3, 5, 4); // dibalik supaya normalnya keluar
+
+    // bottom rectangle
+    faces.push(0, 3, 4, 0, 4, 1);
+    // left rectangle
+    faces.push(0, 2, 5, 0, 5, 3);
+    // right rectangle
+    faces.push(1, 4, 5, 1, 5, 2);
+
+    return { vertices, faces };
+},
+
+
+
     generateHalfEllipsoid: function (a, b, c, stack, step, color, hemisphere = 'upper') {
         const vertices = [];
         const faces = [];
@@ -649,6 +731,187 @@ class Piplup {
                 })(), // No transformation needed, points are in world space
             },
 
+            // BEAK
+            // { geom: Geometry.generateCone(0.3, 0, 0.5, 3, 20, C.BEAK), trans: (() => {
+            //         let m = createTransform(0, 1.6, 0.55);
+            //             LIBS.rotateZ(m, LIBS.degToRad(0));
+            //             LIBS.rotateY(m, LIBS.degToRad(30));
+            //             LIBS.rotateX(m, LIBS.degToRad(75));
+            //             return m;
+            //     })()},
+            
+            // { geom: Geometry.generateCone(0.4, 0, 0.7, 3, 20, C.BEAK), trans: (() => {
+            //         let m = createTransform(0, 1.75, 0.45);
+            //             LIBS.rotateZ(m, LIBS.degToRad(0));
+            //             LIBS.rotateY(m, LIBS.degToRad(-30));
+            //             LIBS.rotateX(m, LIBS.degToRad(105));
+            //             return m;
+            //     })()},
+            
+            { geom: Geometry.generateTriBeak(0.7, 0.1, 0.5, C.BEAK), trans: (() => {
+                    let m = createTransform(0, 1.79, 0.30);
+                        LIBS.rotateZ(m, LIBS.degToRad(0));
+                        LIBS.rotateY(m, LIBS.degToRad(180));
+                        LIBS.rotateX(m, LIBS.degToRad(0));
+                        return m;
+                })()},
+
+            { geom: Geometry.generateTriBeak(0.6, 0.1, 0.5, C.BEAK), trans: (() => {
+                    let m = createTransform(0, 1.69, 0.30);
+                        LIBS.rotateZ(m, LIBS.degToRad(180));
+                        LIBS.rotateY(m, LIBS.degToRad(180));
+                        LIBS.rotateX(m, LIBS.degToRad(0));
+                        return m;
+                })()},
+
+            // CROWN
+            // Tengah
+            { geom: Geometry.generateTriangularPrism(0.1, 0.1, 1.15, C.BEAK), trans: (() => {
+                    let m = createTransform(0, 2.37, 0.45);
+                        LIBS.rotateZ(m, LIBS.degToRad(180));
+                        LIBS.rotateY(m, LIBS.degToRad(0));
+                        LIBS.rotateX(m, LIBS.degToRad(-100));
+                        return m;
+                })()},
+            
+            // Kiri
+            { geom: Geometry.generateTriangularPrism(0.1, 0.1, 0.7, C.BEAK), trans: (() => {
+                    let m = createTransform(0.43, 2.4, 0.20);
+                        LIBS.rotateZ(m, LIBS.degToRad(210));
+                        LIBS.rotateY(m, LIBS.degToRad(0));
+                        LIBS.rotateX(m, LIBS.degToRad(-100));
+                        return m;
+                })()},
+
+            // Kanan
+            { geom: Geometry.generateTriangularPrism(0.1, 0.1, 0.7, C.BEAK), trans: (() => {
+                    let m = createTransform(-0.43, 2.4, 0.20);
+                        LIBS.rotateZ(m, LIBS.degToRad(-210));
+                        LIBS.rotateY(m, LIBS.degToRad(0));
+                        LIBS.rotateX(m, LIBS.degToRad(-100));
+                        return m;
+                })()},
+
+            // Sambungan Beak-Crown Kiri
+            { geom: Geometry.generateTriangularPrism(0.1, 0.1, 0.5, C.BEAK), trans: (() => {
+                    let m = createTransform(0.30, 1.9, 0.37);
+                        LIBS.rotateZ(m, LIBS.degToRad(-15));
+                        LIBS.rotateY(m, LIBS.degToRad(33));
+                        LIBS.rotateX(m, LIBS.degToRad(-125));
+                        return m;
+                })()},
+
+            // Sambungan Beak-Crown Kanan
+            { geom: Geometry.generateTriangularPrism(0.1, 0.1, 0.5, C.BEAK), trans: (() => {
+                    let m = createTransform(-0.30, 1.9, 0.37);
+                        LIBS.rotateZ(m, LIBS.degToRad(15));
+                        LIBS.rotateY(m, LIBS.degToRad(-33));
+                        LIBS.rotateX(m, LIBS.degToRad(-125));
+                        return m;
+                })()},
+
+            // Crown Diamond Tengah
+            { geom: Geometry.generateCone(0.1, 0, 0.2, 3, 20, C.BEAK), trans: (() => {
+                    let m = createTransform(0, 3.045, 0.317);
+                        LIBS.rotateZ(m, LIBS.degToRad(0));
+                        LIBS.rotateY(m, LIBS.degToRad(30));
+                        LIBS.rotateX(m, LIBS.degToRad(-10));
+                        return m;
+                })()},
+
+            { geom: Geometry.generateCone(0.1, 0, 0.2, 3, 20, C.BEAK), trans: (() => {
+                    let m = createTransform(0, 2.85, 0.35);
+                        LIBS.rotateZ(m, LIBS.degToRad(0));
+                        LIBS.rotateY(m, LIBS.degToRad(210));
+                        LIBS.rotateX(m, LIBS.degToRad(-190));
+                        return m;
+                })()},
+
+            // Crown Diamond Kanan
+            { geom: Geometry.generateCone(0.1, 0, 0.2, 3, 20, C.BEAK), trans: (() => {
+                    let m = createTransform(-0.422, 2.92, 0.087);
+                        LIBS.rotateZ(m, LIBS.degToRad(0));
+                        LIBS.rotateY(m, LIBS.degToRad(0));
+                        LIBS.rotateX(m, LIBS.degToRad(-10));
+                        return m;
+                })()},
+
+            { geom: Geometry.generateCone(0.1, 0, 0.2, 3, 20, C.BEAK), trans: (() => {
+                    let m = createTransform(-0.422, 2.73, 0.123);
+                        LIBS.rotateZ(m, LIBS.degToRad(0));
+                        LIBS.rotateY(m, LIBS.degToRad(0));
+                        LIBS.rotateX(m, LIBS.degToRad(-190));
+                        return m;
+                })()},
+
+            // Crown Diamond Kiri
+            { geom: Geometry.generateCone(0.1, 0, 0.2, 3, 20, C.BEAK), trans: (() => {
+                    let m = createTransform(0.422, 2.92, 0.087);
+                        LIBS.rotateZ(m, LIBS.degToRad(0));
+                        LIBS.rotateY(m, LIBS.degToRad(60));
+                        LIBS.rotateX(m, LIBS.degToRad(-10));
+                        return m;
+                })()},
+
+            { geom: Geometry.generateCone(0.1, 0, 0.2, 3, 20, C.BEAK), trans: (() => {
+                    let m = createTransform(0.422, 2.73, 0.123);
+                        LIBS.rotateZ(m, LIBS.degToRad(0));
+                        LIBS.rotateY(m, LIBS.degToRad(60));
+                        LIBS.rotateX(m, LIBS.degToRad(-190));
+                        return m;
+                })()},
+
+            // KERAH Kiri
+            {
+                geom: Geometry.generateTaperedShapeFromSpline(
+                    // Control points define the curve's path from base to tip
+                    [
+                        [0.0, 0.2, 1.4],  // Start point on the lower back
+                        [0.0, 0.2, 1.2],  // Mid-point, curving down and back
+                        [0.0, 0.2, 1.0]   // End point, the tip of the tail
+                    ],
+                    50,   // Segments for a smooth curve
+                    [0.02, 0.5],  // Start Radii [thickness, width] - wide and flat at the base
+                    [0.01, 0.01], // End Radii [thickness, width] - narrow and thin at the tip
+                    20,   // Radial segments
+                    C.HEAD // Using the head color for the tail
+                ),
+                trans: (() => {
+                    const m = createTransform(0.17, 1.72 , -0.85);
+                    LIBS.rotateX(m, LIBS.degToRad(-15));
+                    LIBS.rotateY(m, LIBS.degToRad(-15));
+                    LIBS.rotateZ(m, LIBS.degToRad(40));
+
+                    // LIBS.scale(m, 1.2);
+                    return m
+                })(), // No transformation needed, points are in world space
+            },
+
+            {
+                geom: Geometry.generateTaperedShapeFromSpline(
+                    // Control points define the curve's path from base to tip
+                    [
+                        [0.0, 0.2, 1.4],  // Start point on the lower back
+                        [0.0, 0.2, 1.2],  // Mid-point, curving down and back
+                        [0.0, 0.2, 1.0]   // End point, the tip of the tail
+                    ],
+                    50,   // Segments for a smooth curve
+                    [0.02, 0.5],  // Start Radii [thickness, width] - wide and flat at the base
+                    [0.01, 0.01], // End Radii [thickness, width] - narrow and thin at the tip
+                    20,   // Radial segments
+                    C.HEAD // Using the head color for the tail
+                ),
+                trans: (() => {
+                    const m = createTransform(-0.17, 1.72 , -0.85);
+                    LIBS.rotateX(m, LIBS.degToRad(-15));
+                    LIBS.rotateY(m, LIBS.degToRad(15));
+                    LIBS.rotateZ(m, LIBS.degToRad(-40));
+
+                    // LIBS.scale(m, 1.2);
+                    return m
+                })(), // No transformation needed, points are in world space
+            },
+
             // {
             //     geom: Geometry.generateTaperedShapeFromSpline(
             //         // Control points define the curve's path from base to tip
@@ -803,7 +1066,57 @@ class Piplup {
                         LIBS.rotateX(m, LIBS.degToRad(-100));
                         return m;
                 })()},
+
+            // Finger Kanan
+            { geom: Geometry.generateCone(0.05, 0, 0.2, 50, 20, C.BEAK), trans: (() => {
+                    let m = createTransform(-1.7, -0.9, 0.40);
+                        LIBS.rotateZ(m, LIBS.degToRad(-120));
+                        LIBS.rotateY(m, LIBS.degToRad(0));
+                        LIBS.rotateX(m, LIBS.degToRad(0));
+                        return m;
+                })()},
             
+            { geom: Geometry.generateCone(0.05, 0, 0.2, 50, 20, C.BEAK), trans: (() => {
+                    let m = createTransform(-1.65, -0.8, 0.50);
+                        LIBS.rotateZ(m, LIBS.degToRad(-120));
+                        LIBS.rotateY(m, LIBS.degToRad(0));
+                        LIBS.rotateX(m, LIBS.degToRad(0));
+                        return m;
+                })()},
+
+            { geom: Geometry.generateCone(0.05, 0, 0.2, 50, 20, C.BEAK), trans: (() => {
+                    let m = createTransform(-1.62, -0.8, 0.30);
+                        LIBS.rotateZ(m, LIBS.degToRad(-120));
+                        LIBS.rotateY(m, LIBS.degToRad(0));
+                        LIBS.rotateX(m, LIBS.degToRad(0));
+                        return m;
+                })()},
+
+            // Finger Kiri
+            { geom: Geometry.generateCone(0.05, 0, 0.2, 50, 20, C.BEAK), trans: (() => {
+                    let m = createTransform(1.7, -0.9, 0.40);
+                        LIBS.rotateZ(m, LIBS.degToRad(120));
+                        LIBS.rotateY(m, LIBS.degToRad(0));
+                        LIBS.rotateX(m, LIBS.degToRad(0));
+                        return m;
+                })()},
+            
+            { geom: Geometry.generateCone(0.05, 0, 0.2, 50, 20, C.BEAK), trans: (() => {
+                    let m = createTransform(1.65, -0.8, 0.50);
+                        LIBS.rotateZ(m, LIBS.degToRad(120));
+                        LIBS.rotateY(m, LIBS.degToRad(0));
+                        LIBS.rotateX(m, LIBS.degToRad(0));
+                        return m;
+                })()},
+
+            { geom: Geometry.generateCone(0.05, 0, 0.2, 50, 20, C.BEAK), trans: (() => {
+                    let m = createTransform(1.62, -0.8, 0.30);
+                        LIBS.rotateZ(m, LIBS.degToRad(120));
+                        LIBS.rotateY(m, LIBS.degToRad(0));
+                        LIBS.rotateX(m, LIBS.degToRad(0));
+                        return m;
+                })()},
+
             // Legs
             { geom: Geometry.generateHalfHyperboloid(0.25, 0.5, 0.25, 20, 20, C.EMPO_LOWER_BODY, 0, 1.3), trans: (() => {
                     let m = createTransform(-0.55, -1.9, 0.3);
@@ -818,6 +1131,13 @@ class Piplup {
                     LIBS.rotateX(m, LIBS.degToRad(-10));
                     return m;
                 })()},
+            
+            // Feet
+            { geom: Geometry.generateSphere(0.3, 0.12, 0.35, 10, 10, C.FEET), trans: createTransform(-0.55, -1.9, 0.24), animationType: 'none'},
+            { geom: Geometry.generateSphere(0.3, 0.1, 0.5, 10, 10, C.FEET), trans: createTransform(-0.55, -2, 0.4), animationType: 'none'},
+
+            { geom: Geometry.generateSphere(0.3, 0.12, 0.35, 10, 10, C.FEET), trans: createTransform(0.55, -1.9, 0.24), animationType: 'none'},
+            { geom: Geometry.generateSphere(0.3, 0.1, 0.5, 10, 10, C.FEET), trans: createTransform(0.55, -2, 0.4), animationType: 'none'},
     
     ]
         partDefinitions.forEach(def => {
