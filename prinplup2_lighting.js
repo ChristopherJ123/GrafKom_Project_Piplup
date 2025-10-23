@@ -2,1210 +2,1248 @@
 // We place the geometry generation logic in its own object to keep things organized.
 (function() {
 
-const Geometry = {
-    generateSphere: function (a, b, c, stack, step, color) {
-        const vertices = [];
-        const faces = [];
-        for (let i = 0; i <= stack; i++) {
-            for (let j = 0; j <= step; j++) {
-                const u = i / stack;
-                const v = j / step;
-                const theta = u * Math.PI;
-                const phi = v * 2 * Math.PI;
+// (Geometry functions: generateSphere, generateBeak, etc. are all unchanged)
+// ... (Your entire Geometry object goes here, unchanged. I've omitted it for brevity.)
+    const Geometry = {
+        generateSphere: function (a, b, c, stack, step, color) {
+            const vertices = [];
+            const faces = [];
+            for (let i = 0; i <= stack; i++) {
+                for (let j = 0; j <= step; j++) {
+                    const u = i / stack;
+                    const v = j / step;
+                    const theta = u * Math.PI;
+                    const phi = v * 2 * Math.PI;
 
-                const x = a * Math.sin(theta) * Math.cos(phi);
-                const y = b * Math.cos(theta);
-                const z = c * Math.sin(theta) * Math.sin(phi);
+                    const x = a * Math.sin(theta) * Math.cos(phi);
+                    const y = b * Math.cos(theta);
+                    const z = c * Math.sin(theta) * Math.sin(phi);
 
-                // Normal for a sphere is just its position vector (normalized)
-                const normal = [x, y, z];
+                    // Normal for a sphere is just its position vector (normalized)
+                    const normal = [x, y, z];
 
-                vertices.push(x, y, z, color[0], color[1], color[2], v, u - 1.0, normal[0], normal[1], normal[2]);
-            }
-        }
-        for (let i = 0; i < stack; i++) {
-            for (let j = 0; j < step; j++) {
-                const p1 = i * (step + 1) + j;
-                const p2 = p1 + 1;
-                const p3 = p1 + (step + 1);
-                const p4 = p3 + 1;
-                faces.push(p1, p2, p4, p1, p4, p3);
-            }
-        }
-        return { vertices, faces };
-    },
-
-    /**
-     * Generates a blunted, beak-like shape.
-     * @param {number} width - Max width (x-axis).
-     * @param {number} thickness - Max thickness (y-axis).
-     * @param {number} length - The length of the beak (z-axis).
-     * @param {number} segments - The number of segments for resolution.
-     * @param {Array<number>} color - The RGB color array.
-     * @returns {{vertices: Array<number>, faces: Array<number>}}
-     */
-    generateBeak: function(width, thickness, length, segments, color) {
-        const vertices = [];
-        const faces = [];
-
-        // Tip of the beak
-        // Normal points straight out the tip
-        vertices.push(0, 0, 0, color[0], color[1], color[2], 0, 0, 0, 0, 1);
-
-        // Build the beak with circular cross-sections
-        for (let i = 1; i <= segments; i++) {
-            const t = i / segments; // Parameter from 0 to 1
-
-            // Use sqrt(t) to make the beak fatter at the base and blunter at the tip
-            const radiusScale = Math.sqrt(t);
-            const currentZ = -length * t; // Move along the negative Z-axis
-
-            for (let j = 0; j < segments; j++) {
-                const theta = (j / segments) * 2 * Math.PI;
-                const x = width * radiusScale * Math.cos(theta);
-                const y = thickness * radiusScale * Math.sin(theta);
-                
-                // Normal for the sides
-                let nx = x;
-                let ny = y;
-                const mag = Math.sqrt(nx * nx + ny * ny);
-                if (mag > 0) {
-                    nx /= mag;
-                    ny /= mag;
+                    vertices.push(x, y, z, color[0], color[1], color[2], v, u - 1.0, normal[0], normal[1], normal[2]);
                 }
-
-                vertices.push(x, y, currentZ, color[0], color[1], color[2], t, j / segments, nx, ny, 0);
             }
-        }
-
-        // Create faces for the tip
-        for (let j = 1; j <= segments; j++) {
-            faces.push(0, j, (j % segments) + 1);
-        }
-
-        // Create faces for the sides
-        for (let i = 0; i < segments - 1; i++) {
-            const ring1_start = 1 + i * segments;
-            const ring2_start = 1 + (i + 1) * segments;
-            for (let j = 0; j < segments; j++) {
-                const p1 = ring1_start + j;
-                const p2 = ring1_start + ((j + 1) % segments);
-                const p3 = ring2_start + j;
-                const p4 = ring2_start + ((j + 1) % segments);
-                faces.push(p1, p3, p2, p2, p3, p4);
+            for (let i = 0; i < stack; i++) {
+                for (let j = 0; j < step; j++) {
+                    const p1 = i * (step + 1) + j;
+                    const p2 = p1 + 1;
+                    const p3 = p1 + (step + 1);
+                    const p4 = p3 + 1;
+                    faces.push(p1, p2, p4, p1, p4, p3);
+                }
             }
-        }
+            return { vertices, faces };
+        },
 
-        return { vertices, faces };
-    },
+        /**
+         * Generates a blunted, beak-like shape.
+         * @param {number} width - Max width (x-axis).
+         * @param {number} thickness - Max thickness (y-axis).
+         * @param {number} length - The length of the beak (z-axis).
+         * @param {number} segments - The number of segments for resolution.
+         * @param {Array<number>} color - The RGB color array.
+         * @returns {{vertices: Array<number>, faces: Array<number>}}
+         */
+        generateBeak: function(width, thickness, length, segments, color) {
+            const vertices = [];
+            const faces = [];
 
-    generateTubeFromSpline: function(controlPoints, segments, radius, radialSegments, color) {
-        var vertices = [];
-        var faces = [];
-        var splinePoints = [];
-        var tangents = [];
+            // Tip of the beak
+            // Normal points straight out the tip
+            vertices.push(0, 0, 0, color[0], color[1], color[2], 0, 0, 0, 0, 1);
 
-        var points = [];
-        points.push(controlPoints[0]);
-        controlPoints.forEach(p => points.push(p));
-        points.push(controlPoints[controlPoints.length - 1]);
+            // Build the beak with circular cross-sections
+            for (let i = 1; i <= segments; i++) {
+                const t = i / segments; // Parameter from 0 to 1
 
-        for (var i = 1; i < points.length - 2; i++) {
-            var p0 = points[i - 1];
-            var p1 = points[i];
-            var p2 = points[i + 1];
-            var p3 = points[i + 2];
+                // Use sqrt(t) to make the beak fatter at the base and blunter at the tip
+                const radiusScale = Math.sqrt(t);
+                const currentZ = -length * t; // Move along the negative Z-axis
 
-            for (var j = 0; j <= segments; j++) {
-                var t = j / segments;
-                var t2 = t * t;
-                var t3 = t2 * t;
+                for (let j = 0; j < segments; j++) {
+                    const theta = (j / segments) * 2 * Math.PI;
+                    const x = width * radiusScale * Math.cos(theta);
+                    const y = thickness * radiusScale * Math.sin(theta);
 
-                var x = 0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3);
-                var y = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
-                var z = 0.5 * ((2 * p1[2]) + (-p0[2] + p2[2]) * t + (2 * p0[2] - 5 * p1[2] + 4 * p2[2] - p3[2]) * t2 + (-p0[2] + 3 * p1[2] - 3 * p2[2] + p3[2]) * t3);
-                splinePoints.push([x, y, z]);
+                    // Normal for the sides
+                    let nx = x;
+                    let ny = y;
+                    const mag = Math.sqrt(nx * nx + ny * ny);
+                    if (mag > 0) {
+                        nx /= mag;
+                        ny /= mag;
+                    }
 
-                var tx = 0.5 * ((-p0[0] + p2[0]) + 2 * (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t + 3 * (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t2);
-                var ty = 0.5 * ((-p0[1] + p2[1]) + 2 * (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t + 3 * (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t2);
-                var tz = 0.5 * ((-p0[2] + p2[2]) + 2 * (2 * p0[2] - 5 * p1[2] + 4 * p2[2] - p3[2]) * t + 3 * (-p0[2] + 3 * p1[2] - 3 * p2[2] + p3[2]) * t2);
-
-                var mag = Math.sqrt(tx * tx + ty * ty + tz * tz);
-                tangents.push([tx / mag, ty / mag, tz / mag]);
-            }
-        }
-
-        var up = [0, 1, 0];
-        for (var i = 0; i < splinePoints.length; i++) {
-            var point = splinePoints[i];
-            var tangent = tangents[i];
-
-            if (Math.abs(tangent[1]) > 0.999) {
-                up = [1, 0, 0];
-            } else {
-                up = [0, 1, 0];
+                    vertices.push(x, y, currentZ, color[0], color[1], color[2], t, j / segments, nx, ny, 0);
+                }
             }
 
-            var normal = [tangent[1] * up[2] - tangent[2] * up[1], tangent[2] * up[0] - tangent[0] * up[2], tangent[0] * up[1] - tangent[1] * up[0]];
-            var magN = Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
-            normal = [normal[0] / magN, normal[1] / magN, normal[2] / magN];
-
-            var binormal = [tangent[1] * normal[2] - tangent[2] * normal[1], tangent[2] * normal[0] - tangent[0] * normal[2], tangent[0] * normal[1] - tangent[1] * normal[0]];
-
-            for (var j = 0; j <= radialSegments; j++) {
-                var theta = (j / radialSegments) * 2 * Math.PI;
-                var x = point[0] + radius * (Math.cos(theta) * normal[0] + Math.sin(theta) * binormal[0]);
-                var y = point[1] + radius * (Math.cos(theta) * normal[1] + Math.sin(theta) * binormal[1]);
-                var z = point[2] + radius * (Math.cos(theta) * normal[2] + Math.sin(theta) * binormal[2]);
-                
-                // Normal is the vector from the spline point to the vertex
-                var n = [x - point[0], y - point[1], z - point[2]];
-                var mag = Math.sqrt(n[0]*n[0] + n[1]*n[1] + n[2]*n[2]);
-                if (mag > 0) { n[0] /= mag; n[1] /= mag; n[2] /= mag; }
-
-                vertices.push(x, y, z, color[0], color[1], color[2], j / radialSegments, i / splinePoints.length, n[0], n[1], n[2]);
+            // Create faces for the tip
+            for (let j = 1; j <= segments; j++) {
+                faces.push(0, j, (j % segments) + 1);
             }
-        }
 
-        for (var i = 0; i < splinePoints.length - 1; i++) {
-            for (var j = 0; j < radialSegments; j++) {
-                var p1 = i * (radialSegments + 1) + j;
-                var p2 = p1 + 1;
-                var p3 = (i + 1) * (radialSegments + 1) + j;
-                var p4 = p3 + 1;
-                faces.push(p1, p2, p4);
-                faces.push(p1, p4, p3);
+            // Create faces for the sides
+            for (let i = 0; i < segments - 1; i++) {
+                const ring1_start = 1 + i * segments;
+                const ring2_start = 1 + (i + 1) * segments;
+                for (let j = 0; j < segments; j++) {
+                    const p1 = ring1_start + j;
+                    const p2 = ring1_start + ((j + 1) % segments);
+                    const p3 = ring2_start + j;
+                    const p4 = ring2_start + ((j + 1) % segments);
+                    faces.push(p1, p3, p2, p2, p3, p4);
+                }
             }
-        }
-        return { vertices, faces };
-    },
 
-    generateTaperedShapeFromSpline: function(controlPoints, segments, startRadii, endRadii, radialSegments, color) {
-        var vertices = [];
-        var faces = [];
-        var splinePoints = [];
-        var tangents = [];
+            return { vertices, faces };
+        },
 
-        // --- Spline Calculation (same as your existing function) ---
-        var points = [];
-        points.push(controlPoints[0]);
-        controlPoints.forEach(p => points.push(p));
-        points.push(controlPoints[controlPoints.length - 1]);
+        generateTubeFromSpline: function(controlPoints, segments, radius, radialSegments, color) {
+            var vertices = [];
+            var faces = [];
+            var splinePoints = [];
+            var tangents = [];
 
-        for (var i = 1; i < points.length - 2; i++) {
-            var p0 = points[i - 1];
-            var p1 = points[i];
-            var p2 = points[i + 1];
-            var p3 = points[i + 2];
+            var points = [];
+            points.push(controlPoints[0]);
+            controlPoints.forEach(p => points.push(p));
+            points.push(controlPoints[controlPoints.length - 1]);
 
-            for (var j = 0; j <= segments; j++) {
-                var t = j / segments;
-                var t2 = t * t;
-                var t3 = t2 * t;
+            for (var i = 1; i < points.length - 2; i++) {
+                var p0 = points[i - 1];
+                var p1 = points[i];
+                var p2 = points[i + 1];
+                var p3 = points[i + 2];
 
-                var x = 0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3);
-                var y = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
-                var z = 0.5 * ((2 * p1[2]) + (-p0[2] + p2[2]) * t + (2 * p0[2] - 5 * p1[2] + 4 * p2[2] - p3[2]) * t2 + (-p0[2] + 3 * p1[2] - 3 * p2[2] + p3[2]) * t3);
-                splinePoints.push([x, y, z]);
+                for (var j = 0; j <= segments; j++) {
+                    var t = j / segments;
+                    var t2 = t * t;
+                    var t3 = t2 * t;
 
-                var tx = 0.5 * ((-p0[0] + p2[0]) + 2 * (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t + 3 * (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t2);
-                var ty = 0.5 * ((-p0[1] + p2[1]) + 2 * (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t + 3 * (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t2);
-                var tz = 0.5 * ((-p0[2] + p2[2]) + 2 * (2 * p0[2] - 5 * p1[2] + 4 * p2[2] - p3[2]) * t + 3 * (-p0[2] + 3 * p1[2] - 3 * p2[2] + p3[2]) * t2);
+                    var x = 0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3);
+                    var y = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
+                    var z = 0.5 * ((2 * p1[2]) + (-p0[2] + p2[2]) * t + (2 * p0[2] - 5 * p1[2] + 4 * p2[2] - p3[2]) * t2 + (-p0[2] + 3 * p1[2] - 3 * p2[2] + p3[2]) * t3);
+                    splinePoints.push([x, y, z]);
 
-                var mag = Math.sqrt(tx * tx + ty * ty + tz * tz);
-                tangents.push([tx / mag, ty / mag, tz / mag]);
+                    var tx = 0.5 * ((-p0[0] + p2[0]) + 2 * (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t + 3 * (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t2);
+                    var ty = 0.5 * ((-p0[1] + p2[1]) + 2 * (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t + 3 * (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t2);
+                    var tz = 0.5 * ((-p0[2] + p2[2]) + 2 * (2 * p0[2] - 5 * p1[2] + 4 * p2[2] - p3[2]) * t + 3 * (-p0[2] + 3 * p1[2] - 3 * p2[2] + p3[2]) * t2);
+
+                    var mag = Math.sqrt(tx * tx + ty * ty + tz * tz);
+                    tangents.push([tx / mag, ty / mag, tz / mag]);
+                }
             }
-        }
 
-        // --- Mesh Generation (modified for tapering) ---
-        var up = [0, 1, 0];
-        for (var i = 0; i < splinePoints.length; i++) {
-            var t = i / (splinePoints.length - 1); // Interpolation factor (0 to 1)
+            var up = [0, 1, 0];
+            for (var i = 0; i < splinePoints.length; i++) {
+                var point = splinePoints[i];
+                var tangent = tangents[i];
 
-            // Interpolate radii for tapering effect
-            var currentRadiusX = startRadii[0] * (1 - t) + endRadii[0] * t;
-            var currentRadiusY = startRadii[1] * (1 - t) + endRadii[1] * t;
-
-            var point = splinePoints[i];
-            var tangent = tangents[i];
-
-            if (Math.abs(tangent[1]) > 0.999) { up = [1, 0, 0]; }
-            else { up = [0, 1, 0]; }
-
-            var normal = [tangent[1] * up[2] - tangent[2] * up[1], tangent[2] * up[0] - tangent[0] * up[2], tangent[0] * up[1] - tangent[1] * up[0]];
-            var magN = Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
-            normal = [normal[0] / magN, normal[1] / magN, normal[2] / magN];
-
-            var binormal = [tangent[1] * normal[2] - tangent[2] * normal[1], tangent[2] * normal[0] - tangent[0] * normal[2], tangent[0] * normal[1] - tangent[1] * normal[0]];
-
-            for (var j = 0; j <= radialSegments; j++) {
-                var theta = (j / radialSegments) * 2 * Math.PI;
-                // Use different radii for X and Y to create a flattened (elliptical) shape
-                var x = point[0] + (currentRadiusX * Math.cos(theta) * normal[0] + currentRadiusY * Math.sin(theta) * binormal[0]);
-                var y = point[1] + (currentRadiusX * Math.cos(theta) * normal[1] + currentRadiusY * Math.sin(theta) * binormal[1]);
-                var z = point[2] + (currentRadiusX * Math.cos(theta) * normal[2] + currentRadiusY * Math.sin(theta) * binormal[2]);
-                
-                // Normal is vector from spline point to vertex
-                var n = [x - point[0], y - point[1], z - point[2]];
-                var mag = Math.sqrt(n[0]*n[0] + n[1]*n[1] + n[2]*n[2]);
-                if (mag > 0) { n[0] /= mag; n[1] /= mag; n[2] /= mag; }
-
-                vertices.push(x, y, z, color[0], color[1], color[2], j/radialSegments, i/splinePoints.length, n[0], n[1], n[2]);
-            }
-        }
-
-        for (var i = 0; i < splinePoints.length - 1; i++) {
-            for (var j = 0; j < radialSegments; j++) {
-                var p1 = i * (radialSegments + 1) + j;
-                var p2 = p1 + 1;
-                var p3 = (i + 1) * (radialSegments + 1) + j;
-                var p4 = p3 + 1;
-                faces.push(p1, p2, p4);
-                faces.push(p1, p4, p3);
-            }
-        }
-        return { vertices, faces };
-    },
-
-    generateLathe: function(points, segments, color) {
-        const vertices = [];
-        const faces = [];
-        const phi_step = 2 * Math.PI / segments;
-
-        // Generate vertices
-        for (let i = 0; i <= segments; i++) {
-            const phi = i * phi_step;
-            const sin_phi = Math.sin(phi);
-            const cos_phi = Math.cos(phi);
-
-            for (let j = 0; j < points.length; j++) {
-                const x = points[j][0] * cos_phi;
-                const y = points[j][1];
-                const z = points[j][0] * sin_phi;
-
-                // Calculate normal based on profile tangent
-                let p_prev = points[j > 0 ? j - 1 : j];
-                let p_next = points[j < points.length - 1 ? j + 1 : j];
-                
-                let tangent_r, tangent_y;
-                if (j == 0) {
-                    tangent_r = points[1][0] - points[0][0];
-                    tangent_y = points[1][1] - points[0][1];
-                } else if (j == points.length - 1) {
-                    tangent_r = points[j][0] - points[j-1][0];
-                    tangent_y = points[j][1] - points[j-1][1];
+                if (Math.abs(tangent[1]) > 0.999) {
+                    up = [1, 0, 0];
                 } else {
-                    tangent_r = p_next[0] - p_prev[0];
-                    tangent_y = p_next[1] - p_prev[1];
+                    up = [0, 1, 0];
                 }
 
-                let profile_normal_r = -tangent_y;
-                let profile_normal_y = tangent_r;
-                
-                let mag = Math.sqrt(profile_normal_r*profile_normal_r + profile_normal_y*profile_normal_y);
-                if (mag > 0) { 
-                    profile_normal_r /= mag; 
-                    profile_normal_y /= mag; 
+                var normal = [tangent[1] * up[2] - tangent[2] * up[1], tangent[2] * up[0] - tangent[0] * up[2], tangent[0] * up[1] - tangent[1] * up[0]];
+                var magN = Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+                normal = [normal[0] / magN, normal[1] / magN, normal[2] / magN];
+
+                var binormal = [tangent[1] * normal[2] - tangent[2] * normal[1], tangent[2] * normal[0] - tangent[0] * normal[2], tangent[0] * normal[1] - tangent[1] * normal[0]];
+
+                for (var j = 0; j <= radialSegments; j++) {
+                    var theta = (j / radialSegments) * 2 * Math.PI;
+                    var x = point[0] + radius * (Math.cos(theta) * normal[0] + Math.sin(theta) * binormal[0]);
+                    var y = point[1] + radius * (Math.cos(theta) * normal[1] + Math.sin(theta) * binormal[1]);
+                    var z = point[2] + radius * (Math.cos(theta) * normal[2] + Math.sin(theta) * binormal[2]);
+
+                    // Normal is the vector from the spline point to the vertex
+                    var n = [x - point[0], y - point[1], z - point[2]];
+                    var mag = Math.sqrt(n[0]*n[0] + n[1]*n[1] + n[2]*n[2]);
+                    if (mag > 0) { n[0] /= mag; n[1] /= mag; n[2] /= mag; }
+
+                    vertices.push(x, y, z, color[0], color[1], color[2], j / radialSegments, i / splinePoints.length, n[0], n[1], n[2]);
                 }
-
-                let nx = profile_normal_r * cos_phi;
-                let ny = profile_normal_y;
-                let nz = profile_normal_r * sin_phi;
-                // End normal calculation
-
-                // UV coordinates
-                const u = i / segments;
-                const v = j / (points.length - 1);
-
-                vertices.push(x, y, z, color[0], color[1], color[2], u, v, nx, ny, nz);
             }
-        }
 
-        // Generate faces
-        for (let i = 0; i < segments; i++) {
-            for (let j = 0; j < points.length - 1; j++) {
-                const p1 = i * points.length + j;
-                const p2 = p1 + points.length;
-                const p3 = p1 + 1;
-                const p4 = p2 + 1;
-
-                faces.push(p1, p2, p4, p1, p4, p3);
+            for (var i = 0; i < splinePoints.length - 1; i++) {
+                for (var j = 0; j < radialSegments; j++) {
+                    var p1 = i * (radialSegments + 1) + j;
+                    var p2 = p1 + 1;
+                    var p3 = (i + 1) * (radialSegments + 1) + j;
+                    var p4 = p3 + 1;
+                    faces.push(p1, p2, p4);
+                    faces.push(p1, p4, p3);
+                }
             }
-        }
+            return { vertices, faces };
+        },
 
-        return { vertices, faces };
-    },
+        generateTaperedShapeFromSpline: function(controlPoints, segments, startRadii, endRadii, radialSegments, color) {
+            var vertices = [];
+            var faces = [];
+            var splinePoints = [];
+            var tangents = [];
 
-    generateCircle: function(radius, segments, color) {
-        const vertices = [];
-        const faces = [];
-        // Add the center vertex at (0, 0, 0)
-        // Vertex format: x, y, z, r, g, b, u, v, nx, ny, nz
-        // Normal points up (0, 0, 1) assuming circle is in XY plane
-        vertices.push(0, 0, 0, color[0], color[1], color[2], 0.5, 0.5, 0, 0, 1);
+            // --- Spline Calculation (same as your existing function) ---
+            var points = [];
+            points.push(controlPoints[0]);
+            controlPoints.forEach(p => points.push(p));
+            points.push(controlPoints[controlPoints.length - 1]);
 
-        // Add vertices for the circumference
-        for (let i = 0; i <= segments; i++) {
-            const theta = (i / segments) * 2 * Math.PI;
-            const x = radius * Math.cos(theta);
-            const y = radius * Math.sin(theta);
-            
-            // Texture coordinates (map circular coords to square UV space)
-            const u = (x / radius + 1) / 2;
-            const v = (y / radius + 1) / 2;
+            for (var i = 1; i < points.length - 2; i++) {
+                var p0 = points[i - 1];
+                var p1 = points[i];
+                var p2 = points[i + 1];
+                var p3 = points[i + 2];
 
-            vertices.push(x, y, 0, color[0], color[1], color[2], u, v, 0, 0, 1);
-        }
-        // Create the faces using the center vertex (index 0)
-        for (let i = 1; i <= segments; i++) {
-            const centerIndex = 0;
-            const currentIndex = i;
-            const nextIndex = i + 1;
-            faces.push(centerIndex, currentIndex, nextIndex);
-        }
-        return { vertices, faces };
-    },
+                for (var j = 0; j <= segments; j++) {
+                    var t = j / segments;
+                    var t2 = t * t;
+                    var t3 = t2 * t;
 
-    generateAngryEye: function(a, b, c, stack, step, verticalSweepDegrees, color) {
-        const vertices = [];
-        const faces = [];
+                    var x = 0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3);
+                    var y = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
+                    var z = 0.5 * ((2 * p1[2]) + (-p0[2] + p2[2]) * t + (2 * p0[2] - 5 * p1[2] + 4 * p2[2] - p3[2]) * t2 + (-p0[2] + 3 * p1[2] - 3 * p2[2] + p3[2]) * t3);
+                    splinePoints.push([x, y, z]);
 
-        const verticalSweepRad = (verticalSweepDegrees * Math.PI) / 180;
-        
-        // The sweep starts from the bottom pole (theta=PI) and goes upwards.
-        const endTheta = Math.PI - verticalSweepRad;
+                    var tx = 0.5 * ((-p0[0] + p2[0]) + 2 * (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t + 3 * (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t2);
+                    var ty = 0.5 * ((-p0[1] + p2[1]) + 2 * (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t + 3 * (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t2);
+                    var tz = 0.5 * ((-p0[2] + p2[2]) + 2 * (2 * p0[2] - 5 * p1[2] + 4 * p2[2] - p3[2]) * t + 3 * (-p0[2] + 3 * p1[2] - 3 * p2[2] + p3[2]) * t2);
 
-        for (let i = 0; i <= stack; i++) {
-            for (let j = 0; j <= step; j++) {
-                const u = i / stack; // progression along the sweep
-                const v = j / step; // progression around the circle
-
-                const theta = Math.PI - u * verticalSweepRad;
-                const phi = v * 2 * Math.PI;
-
-                const x = a * Math.sin(theta) * Math.cos(phi);
-                const y = b * Math.cos(theta);
-                const z = c * Math.sin(theta) * Math.sin(phi);
-
-                // Normal for a partial sphere is its position vector
-                const normal = [x, y, z];
-
-                vertices.push(x, y, z, color[0], color[1], color[2], v, u, normal[0], normal[1], normal[2]);
+                    var mag = Math.sqrt(tx * tx + ty * ty + tz * tz);
+                    tangents.push([tx / mag, ty / mag, tz / mag]);
+                }
             }
-        }
 
-        // Create faces for the curved surface
-        for (let i = 0; i < stack; i++) {
-            for (let j = 0; j < step; j++) {
-                const p1 = i * (step + 1) + j;
-                const p2 = p1 + 1;
-                const p3 = p1 + (step + 1);
-                const p4 = p3 + 1;
-                faces.push(p1, p2, p4, p1, p4, p3);
+            // --- Mesh Generation (modified for tapering) ---
+            var up = [0, 1, 0];
+            for (var i = 0; i < splinePoints.length; i++) {
+                var t = i / (splinePoints.length - 1); // Interpolation factor (0 to 1)
+
+                // Interpolate radii for tapering effect
+                var currentRadiusX = startRadii[0] * (1 - t) + endRadii[0] * t;
+                var currentRadiusY = startRadii[1] * (1 - t) + endRadii[1] * t;
+
+                var point = splinePoints[i];
+                var tangent = tangents[i];
+
+                if (Math.abs(tangent[1]) > 0.999) { up = [1, 0, 0]; }
+                else { up = [0, 1, 0]; }
+
+                var normal = [tangent[1] * up[2] - tangent[2] * up[1], tangent[2] * up[0] - tangent[0] * up[2], tangent[0] * up[1] - tangent[1] * up[0]];
+                var magN = Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
+                normal = [normal[0] / magN, normal[1] / magN, normal[2] / magN];
+
+                var binormal = [tangent[1] * normal[2] - tangent[2] * normal[1], tangent[2] * normal[0] - tangent[0] * normal[2], tangent[0] * normal[1] - tangent[1] * normal[0]];
+
+                for (var j = 0; j <= radialSegments; j++) {
+                    var theta = (j / radialSegments) * 2 * Math.PI;
+                    // Use different radii for X and Y to create a flattened (elliptical) shape
+                    var x = point[0] + (currentRadiusX * Math.cos(theta) * normal[0] + currentRadiusY * Math.sin(theta) * binormal[0]);
+                    var y = point[1] + (currentRadiusX * Math.cos(theta) * normal[1] + currentRadiusY * Math.sin(theta) * binormal[1]);
+                    var z = point[2] + (currentRadiusX * Math.cos(theta) * normal[2] + currentRadiusY * Math.sin(theta) * binormal[2]);
+
+                    // Normal is vector from spline point to vertex
+                    var n = [x - point[0], y - point[1], z - point[2]];
+                    var mag = Math.sqrt(n[0]*n[0] + n[1]*n[1] + n[2]*n[2]);
+                    if (mag > 0) { n[0] /= mag; n[1] /= mag; n[2] /= mag; }
+
+                    vertices.push(x, y, z, color[0], color[1], color[2], j/radialSegments, i/splinePoints.length, n[0], n[1], n[2]);
+                }
             }
-        }
 
-        // If the sweep is less than 180, create a flat top cap to close the shape
-        if (verticalSweepDegrees < 180 && verticalSweepDegrees > 0) {
-            const capCenterY = b * Math.cos(endTheta);
-            const centerIndex = vertices.length / 11; // index for the new center vertex (11 floats)
-            
-            // Normal for the cap points straight up (in local Y)
-            vertices.push(0, capCenterY, 0, color[0], color[1], color[2], 0.5, 0.5, 0, 1, 0);
-
-            // Create the fan faces for the cap
-            const lastRingStartIndex = stack * (step + 1);
-            for (let j = 0; j < step; j++) {
-                const p1 = lastRingStartIndex + j;
-                const p2 = lastRingStartIndex + j + 1;
-                // The order (p1, p2, centerIndex) should make the face point upwards
-                faces.push(p1, p2, centerIndex);
+            for (var i = 0; i < splinePoints.length - 1; i++) {
+                for (var j = 0; j < radialSegments; j++) {
+                    var p1 = i * (radialSegments + 1) + j;
+                    var p2 = p1 + 1;
+                    var p3 = (i + 1) * (radialSegments + 1) + j;
+                    var p4 = p3 + 1;
+                    faces.push(p1, p2, p4);
+                    faces.push(p1, p4, p3);
+                }
             }
-        }
+            return { vertices, faces };
+        },
 
-        return { vertices, faces };
-    },
+        generateLathe: function(points, segments, color) {
+            const vertices = [];
+            const faces = [];
+            const phi_step = 2 * Math.PI / segments;
 
-    generateCone: function(radius, height, segments, color) {
-        const vertices = [];
-        const faces = [];
-        const halfHeight = height / 2;
+            // Generate vertices
+            for (let i = 0; i <= segments; i++) {
+                const phi = i * phi_step;
+                const sin_phi = Math.sin(phi);
+                const cos_phi = Math.cos(phi);
 
-        // --- Vertices ---
-        // 1. Tip vertex
-        // [x, y, z, r, g, b, u, v, nx, ny, nz]
-        vertices.push(0, halfHeight, 0, color[0], color[1], color[2], 0.5, 1, 0, 1, 0); // Normal up
+                for (let j = 0; j < points.length; j++) {
+                    const x = points[j][0] * cos_phi;
+                    const y = points[j][1];
+                    const z = points[j][0] * sin_phi;
 
-        // 2. Base center vertex (for the bottom cap)
-        vertices.push(0, -halfHeight, 0, color[0], color[1], color[2], 0.5, 0, 0, -1, 0); // Normal down
-        
-        // 3. Base circumference vertices
-        for (let i = 0; i <= segments; i++) {
-            const theta = (i / segments) * 2 * Math.PI;
-            const x = radius * Math.cos(theta);
-            const z = radius * Math.sin(theta);
-            
-            // UV coordinates mapping the circle to a square
-            const u = (x / radius + 1) / 2;
-            const v = (z / radius + 1) / 2;
+                    // Calculate normal based on profile tangent
+                    let p_prev = points[j > 0 ? j - 1 : j];
+                    let p_next = points[j < points.length - 1 ? j + 1 : j];
 
-            // Normal for the side of the cone
-            let nx = x;
-            let ny = radius / height; // component from the slope
-            let nz = z;
-            let mag = Math.sqrt(nx*nx + ny*ny + nz*nz);
-            if (mag > 0) { nx /= mag; ny /= mag; nz /= mag; }
+                    let tangent_r, tangent_y;
+                    if (j == 0) {
+                        tangent_r = points[1][0] - points[0][0];
+                        tangent_y = points[1][1] - points[0][1];
+                    } else if (j == points.length - 1) {
+                        tangent_r = points[j][0] - points[j-1][0];
+                        tangent_y = points[j][1] - points[j-1][1];
+                    } else {
+                        tangent_r = p_next[0] - p_prev[0];
+                        tangent_y = p_next[1] - p_prev[1];
+                    }
 
-            vertices.push(x, -halfHeight, z, color[0], color[1], color[2], u, v, nx, ny, nz);
-        }
+                    let profile_normal_r = -tangent_y;
+                    let profile_normal_y = tangent_r;
 
-        // --- Faces ---
-        const tipIndex = 0;
-        const baseCenterIndex = 1;
+                    let mag = Math.sqrt(profile_normal_r*profile_normal_r + profile_normal_y*profile_normal_y);
+                    if (mag > 0) {
+                        profile_normal_r /= mag;
+                        profile_normal_y /= mag;
+                    }
 
-        for (let i = 0; i < segments; i++) {
-            const currentIndex = i + 2;
-            const nextIndex = i + 3;
+                    let nx = profile_normal_r * cos_phi;
+                    let ny = profile_normal_y;
+                    let nz = profile_normal_r * sin_phi;
+                    // End normal calculation
 
-            // Side face
-            faces.push(tipIndex, currentIndex, nextIndex);
-            
-            // Base face (note the winding order is reversed to face down)
-            faces.push(baseCenterIndex, nextIndex, currentIndex);
-        }
+                    // UV coordinates
+                    const u = i / segments;
+                    const v = j / (points.length - 1);
 
-        return { vertices, faces };
-    },
+                    vertices.push(x, y, z, color[0], color[1], color[2], u, v, nx, ny, nz);
+                }
+            }
 
-    generateBeak: function(width, thickness, length, segments, color) {
-        const vertices = [];
-        const faces = [];
+            // Generate faces
+            for (let i = 0; i < segments; i++) {
+                for (let j = 0; j < points.length - 1; j++) {
+                    const p1 = i * points.length + j;
+                    const p2 = p1 + points.length;
+                    const p3 = p1 + 1;
+                    const p4 = p2 + 1;
 
-        // Tip of the beak
-        vertices.push(0, 0, 0, color[0], color[1], color[2], 0, 0, 0, 0, 1);
+                    faces.push(p1, p2, p4, p1, p4, p3);
+                }
+            }
 
-        // Build the beak with circular cross-sections
-        for (let i = 1; i <= segments; i++) {
-            const t = i / segments; // Parameter from 0 to 1
+            return { vertices, faces };
+        },
 
-            // Use sqrt(t) to make the beak fatter at the base and blunter at the tip
-            const radiusScale = Math.sqrt(t);
-            const currentZ = -length * t; // Move along the negative Z-axis
+        generateCircle: function(radius, segments, color) {
+            const vertices = [];
+            const faces = [];
+            // Add the center vertex at (0, 0, 0)
+            // Vertex format: x, y, z, r, g, b, u, v, nx, ny, nz
+            // Normal points up (0, 0, 1) assuming circle is in XY plane
+            vertices.push(0, 0, 0, color[0], color[1], color[2], 0.5, 0.5, 0, 0, 1);
 
-            for (let j = 0; j < segments; j++) {
-                const theta = (j / segments) * 2 * Math.PI;
-                const x = width * radiusScale * Math.cos(theta);
-                const y = thickness * radiusScale * Math.sin(theta);
-                
-                // Normal for the sides
+            // Add vertices for the circumference
+            for (let i = 0; i <= segments; i++) {
+                const theta = (i / segments) * 2 * Math.PI;
+                const x = radius * Math.cos(theta);
+                const y = radius * Math.sin(theta);
+
+                // Texture coordinates (map circular coords to square UV space)
+                const u = (x / radius + 1) / 2;
+                const v = (y / radius + 1) / 2;
+
+                vertices.push(x, y, 0, color[0], color[1], color[2], u, v, 0, 0, 1);
+            }
+            // Create the faces using the center vertex (index 0)
+            for (let i = 1; i <= segments; i++) {
+                const centerIndex = 0;
+                const currentIndex = i;
+                const nextIndex = i + 1;
+                faces.push(centerIndex, currentIndex, nextIndex);
+            }
+            return { vertices, faces };
+        },
+
+        generateAngryEye: function(a, b, c, stack, step, verticalSweepDegrees, color) {
+            const vertices = [];
+            const faces = [];
+
+            const verticalSweepRad = (verticalSweepDegrees * Math.PI) / 180;
+
+            // The sweep starts from the bottom pole (theta=PI) and goes upwards.
+            const endTheta = Math.PI - verticalSweepRad;
+
+            for (let i = 0; i <= stack; i++) {
+                for (let j = 0; j <= step; j++) {
+                    const u = i / stack; // progression along the sweep
+                    const v = j / step; // progression around the circle
+
+                    const theta = Math.PI - u * verticalSweepRad;
+                    const phi = v * 2 * Math.PI;
+
+                    const x = a * Math.sin(theta) * Math.cos(phi);
+                    const y = b * Math.cos(theta);
+                    const z = c * Math.sin(theta) * Math.sin(phi);
+
+                    // Normal for a partial sphere is its position vector
+                    const normal = [x, y, z];
+
+                    vertices.push(x, y, z, color[0], color[1], color[2], v, u, normal[0], normal[1], normal[2]);
+                }
+            }
+
+            // Create faces for the curved surface
+            for (let i = 0; i < stack; i++) {
+                for (let j = 0; j < step; j++) {
+                    const p1 = i * (step + 1) + j;
+                    const p2 = p1 + 1;
+                    const p3 = p1 + (step + 1);
+                    const p4 = p3 + 1;
+                    faces.push(p1, p2, p4, p1, p4, p3);
+                }
+            }
+
+            // If the sweep is less than 180, create a flat top cap to close the shape
+            if (verticalSweepDegrees < 180 && verticalSweepDegrees > 0) {
+                const capCenterY = b * Math.cos(endTheta);
+                const centerIndex = vertices.length / 11; // index for the new center vertex (11 floats)
+
+                // Normal for the cap points straight up (in local Y)
+                vertices.push(0, capCenterY, 0, color[0], color[1], color[2], 0.5, 0.5, 0, 1, 0);
+
+                // Create the fan faces for the cap
+                const lastRingStartIndex = stack * (step + 1);
+                for (let j = 0; j < step; j++) {
+                    const p1 = lastRingStartIndex + j;
+                    const p2 = lastRingStartIndex + j + 1;
+                    // The order (p1, p2, centerIndex) should make the face point upwards
+                    faces.push(p1, p2, centerIndex);
+                }
+            }
+
+            return { vertices, faces };
+        },
+
+        generateCone: function(radius, height, segments, color) {
+            const vertices = [];
+            const faces = [];
+            const halfHeight = height / 2;
+
+            // --- Vertices ---
+            // 1. Tip vertex
+            // [x, y, z, r, g, b, u, v, nx, ny, nz]
+            vertices.push(0, halfHeight, 0, color[0], color[1], color[2], 0.5, 1, 0, 1, 0); // Normal up
+
+            // 2. Base center vertex (for the bottom cap)
+            vertices.push(0, -halfHeight, 0, color[0], color[1], color[2], 0.5, 0, 0, -1, 0); // Normal down
+
+            // 3. Base circumference vertices
+            for (let i = 0; i <= segments; i++) {
+                const theta = (i / segments) * 2 * Math.PI;
+                const x = radius * Math.cos(theta);
+                const z = radius * Math.sin(theta);
+
+                // UV coordinates mapping the circle to a square
+                const u = (x / radius + 1) / 2;
+                const v = (z / radius + 1) / 2;
+
+                // Normal for the side of the cone
                 let nx = x;
-                let ny = y;
-                const mag = Math.sqrt(nx * nx + ny * ny);
-                if (mag > 0) {
-                    nx /= mag;
-                    ny /= mag;
+                let ny = radius / height; // component from the slope
+                let nz = z;
+                let mag = Math.sqrt(nx*nx + ny*ny + nz*nz);
+                if (mag > 0) { nx /= mag; ny /= mag; nz /= mag; }
+
+                vertices.push(x, -halfHeight, z, color[0], color[1], color[2], u, v, nx, ny, nz);
+            }
+
+            // --- Faces ---
+            const tipIndex = 0;
+            const baseCenterIndex = 1;
+
+            for (let i = 0; i < segments; i++) {
+                const currentIndex = i + 2;
+                const nextIndex = i + 3;
+
+                // Side face
+                faces.push(tipIndex, currentIndex, nextIndex);
+
+                // Base face (note the winding order is reversed to face down)
+                faces.push(baseCenterIndex, nextIndex, currentIndex);
+            }
+
+            return { vertices, faces };
+        },
+
+        generateDeformedEllipsoid: function (a, b, c, stack, step, color, amplitude, frequency) {
+            const vertices = [];
+            const faces = [];
+            for (let i = 0; i <= stack; i++) {
+                for (let j = 0; j <= step; j++) {
+                    const u = i / stack;
+                    const v = j / step;
+                    const theta = u * Math.PI;
+                    const phi = v * 2 * Math.PI;
+
+                    // 1. Buat titik elipsoid dasar
+                    const baseX = a * Math.sin(theta) * Math.cos(phi);
+                    const baseY = b * Math.cos(theta);
+                    const baseZ = c * Math.sin(theta) * Math.sin(phi);
+
+                    // 2. Buat faktor "noise" untuk deformasi
+                    // Kita gunakan posisi dasar sebagai input agar noise-nya tidak seragam
+                    const noise = (Math.sin(baseX * frequency) + Math.cos(baseZ * frequency) + Math.sin(baseY * frequency)) / 3;
+
+                    // 3. Terapkan deformasi.
+                    // Kita tambahkan 1.0 agar bentuknya "mengembang" keluar
+                    const deformation = 1.0 + (amplitude * noise);
+
+                    const finalX = baseX * deformation;
+                    const finalY = baseY * deformation;
+                    const finalZ = baseZ * deformation;
+
+                    // 4. Normal adalah vektor dari pusat ke titik akhir (untuk lighting)
+                    let nx = finalX, ny = finalY, nz = finalZ;
+                    const mag = Math.sqrt(nx*nx + ny*ny + nz*nz);
+                    if (mag > 0) {
+                        nx /= mag; ny /= mag; nz /= mag;
+                    }
+
+                    // x, y, z, r, g, b, u, v, nx, ny, nz
+                    vertices.push(finalX, finalY, finalZ, color[0], color[1], color[2], v, u, nx, ny, nz);
+                }
+            }
+
+            // Face logic-nya sama persis dengan generateSphere
+            for (let i = 0; i < stack; i++) {
+                for (let j = 0; j < step; j++) {
+                    const p1 = i * (step + 1) + j;
+                    const p2 = p1 + 1;
+                    const p3 = p1 + (step + 1);
+                    const p4 = p3 + 1;
+                    faces.push(p1, p2, p4, p1, p4, p3);
+                }
+            }
+            return { vertices, faces };
+        },
+
+        generateIrregularExtrudedPolygon: function(sides, radius, height, color, irregularityFactor = 0.2) {
+            const vertices = [];
+            const faces = [];
+            const numVerticesPerRing = sides; // Jumlah titik per cincin (atas/bawah)
+
+            // 1. Buat Poin-poin Dasar Poligon (Top Ring)
+            const topRingPoints = [];
+            for (let i = 0; i < sides; i++) {
+                const angle = (i / sides) * 2 * Math.PI;
+
+                // Tambahkan irreguleritas (acak) pada radius setiap titik
+                const currentRadius = radius + (Math.random() - 0.5) * radius * irregularityFactor;
+
+                const x = currentRadius * Math.cos(angle);
+                const z = currentRadius * Math.sin(angle);
+                topRingPoints.push([x, z]);
+            }
+
+            // 2. Vertices untuk Bagian ATAS (Top Cap)
+            // Center vertex atas
+            vertices.push(0, height / 2, 0, color[0], color[1], color[2], 0.5, 0.5, 0, 1, 0); // Normal ke atas (Y+)
+            const topCenterIndex = 0;
+
+            // Vertices di pinggir atas
+            for (let i = 0; i < sides; i++) {
+                const p = topRingPoints[i];
+                // Normal untuk top cap adalah (0,1,0)
+                vertices.push(p[0], height / 2, p[1], color[0], color[1], color[2], (p[0]/radius+1)/2, (p[1]/radius+1)/2, 0, 1, 0);
+            }
+
+            // 3. Faces untuk Bagian ATAS (Top Cap)
+            for (let i = 0; i < sides; i++) {
+                const currentEdgeIndex = topCenterIndex + 1 + i;
+                const nextEdgeIndex = topCenterIndex + 1 + ((i + 1) % sides);
+                faces.push(topCenterIndex, currentEdgeIndex, nextEdgeIndex);
+            }
+
+            // 4. Vertices untuk Bagian BAWAH (Bottom Cap)
+            // Center vertex bawah
+            vertices.push(0, -height / 2, 0, color[0], color[1], color[2], 0.5, 0.5, 0, -1, 0); // Normal ke bawah (Y-)
+            const bottomCenterIndex = vertices.length / 11 - 1; // Index setelah semua vertex atas
+
+            // Vertices di pinggir bawah (mirip dengan atas, tapi Y-nya negatif)
+            for (let i = 0; i < sides; i++) {
+                const p = topRingPoints[i]; // Gunakan poin yang sama agar bentuknya lurus
+                // Normal untuk bottom cap adalah (0,-1,0)
+                vertices.push(p[0], -height / 2, p[1], color[0], color[1], color[2], (p[0]/radius+1)/2, (p[1]/radius+1)/2, 0, -1, 0);
+            }
+
+            // 5. Faces untuk Bagian BAWAH (Bottom Cap)
+            for (let i = 0; i < sides; i++) {
+                const currentEdgeIndex = bottomCenterIndex + 1 + i;
+                const nextEdgeIndex = bottomCenterIndex + 1 + ((i + 1) % sides);
+                // Urutan harus terbalik agar normal menghadap ke bawah
+                faces.push(bottomCenterIndex, nextEdgeIndex, currentEdgeIndex);
+            }
+
+            // 6. Vertices dan Faces untuk SISI SAMPING (Side Walls)
+            for (let i = 0; i < sides; i++) {
+                const p = topRingPoints[i];
+                const p_next = topRingPoints[(i + 1) % sides];
+
+                const topVertexIndex = topCenterIndex + 1 + i;
+                const bottomVertexIndex = bottomCenterIndex + 1 + i;
+
+                const topNextVertexIndex = topCenterIndex + 1 + ((i + 1) % sides);
+                const bottomNextVertexIndex = bottomCenterIndex + 1 + ((i + 1) % sides);
+
+                // Hitung normal untuk sisi samping (vector tegak lurus ke garis pinggir)
+                // Ini akan sedikit tricky karena titiknya tidak simetris.
+                // Kita bisa ambil normalnya tegak lurus ke segmen garis p - p_next
+                const edgeVecX = p_next[0] - p[0];
+                const edgeVecZ = p_next[1] - p[1];
+
+                // Normal di XY plane tegak lurus dengan edgeVec adalah (-edgeVecZ, edgeVecX)
+                let normalX = -edgeVecZ;
+                let normalZ = edgeVecX;
+                let normalY = 0; // Karena ini dinding vertikal
+
+                const magN = Math.sqrt(normalX*normalX + normalY*normalY + normalZ*normalZ);
+                if (magN > 0) {
+                    normalX /= magN;
+                    normalZ /= magN;
                 }
 
-                vertices.push(x, y, currentZ, color[0], color[1], color[2], t, j / segments, nx, ny, 0);
+                // Normal untuk setiap vertex di sisi samping
+                // Untuk memastikan konsistensi, kita perlu menghitung rata-rata normal dari face yang berbagi vertex
+                // Namun, untuk sederhana, kita bisa gunakan normal dari segmen garis saat ini untuk 4 vertex ini
+                // Ini mungkin sedikit kurang halus di sudut, tapi cukup untuk demonstrasi
+                const startIndexSideVerts = vertices.length / 11;
+
+                // Vertex 1 (Top, Current)
+                vertices.push(p[0], height / 2, p[1], color[0], color[1], color[2], 0, 1, normalX, normalY, normalZ);
+                // Vertex 2 (Top, Next)
+                vertices.push(p_next[0], height / 2, p_next[1], color[0], color[1], color[2], 1, 1, normalX, normalY, normalZ);
+                // Vertex 3 (Bottom, Current)
+                vertices.push(p[0], -height / 2, p[1], color[0], color[1], color[2], 0, 0, normalX, normalY, normalZ);
+                // Vertex 4 (Bottom, Next)
+                vertices.push(p_next[0], -height / 2, p_next[1], color[0], color[1], color[2], 1, 0, normalX, normalY, normalZ);
+
+                // Faces untuk satu sisi samping (quad)
+                // (v1, v3, v4) (v1, v4, v2)
+                // Perhatikan bahwa kita tidak menggunakan index dari cap untuk sisi. Kita membuat vertex baru agar normalnya terpisah.
+                faces.push(startIndexSideVerts + 0, startIndexSideVerts + 2, startIndexSideVerts + 3); // Triangle 1
+                faces.push(startIndexSideVerts + 0, startIndexSideVerts + 3, startIndexSideVerts + 1); // Triangle 2
+            }
+
+
+            return { vertices, faces };
+        },
+
+        // --- Fungsi Baru: Bidang Air ---
+        generateWaterPlane: function(width, depth, segmentsW, segmentsD, waterColor) {
+            const vertices = [];
+            const faces = [];
+            const halfWidth = width / 2;
+            const halfDepth = depth / 2;
+            const segmentWidth = width / segmentsW;
+            const segmentDepth = depth / segmentsD;
+
+            for (let i = 0; i <= segmentsW; i++) {
+                for (let j = 0; j <= segmentsD; j++) {
+                    const x = i * segmentWidth - halfWidth;
+                    const z = j * segmentDepth - halfDepth;
+                    const y = 0; // Bidang datar di Y=0
+
+                    // Normal selalu ke atas untuk bidang horizontal (0, 1, 0)
+                    const nx = 0;
+                    const ny = 1;
+                    const nz = 0;
+
+                    // UV coordinates
+                    const u = i / segmentsW;
+                    const v = j / segmentsD;
+
+                    // x, y, z, r, g, b, u, v, nx, ny, nz
+                    vertices.push(x, y, z, waterColor[0], waterColor[1], waterColor[2], u, v, nx, ny, nz);
+                }
+            }
+
+            // Generate Faces
+            for (let i = 0; i < segmentsW; i++) {
+                for (let j = 0; j < segmentsD; j++) {
+                    const p1 = i * (segmentsD + 1) + j;
+                    const p2 = p1 + 1;
+                    const p3 = (i + 1) * (segmentsD + 1) + j;
+                    const p4 = p3 + 1;
+
+                    faces.push(p1, p2, p4);
+                    faces.push(p1, p4, p3);
+                }
+            }
+
+            return { vertices, faces };
+        },
+    };
+
+
+// --- NEW ModelNode CLASS ---
+// This class replaces the old PrinplupPart class
+    class ModelNode {
+        constructor(gl, geometry = null, texture = null) {
+            this.gl = gl;
+            this.geometry = geometry; // The drawable geometry
+            this.texture = texture;
+            this.buffers = null;
+
+            this.baseMatrix = LIBS.get_I4();  // The "default" pose (set once)
+            this.localMatrix = LIBS.get_I4(); // The final transform (base * animation)
+            this.worldMatrix = LIBS.get_I4(); // Final transformation in world space
+            this.children = [];
+            this.parent = null;
+
+            if (this.geometry) {
+                this.buffers = this.createBuffers();
             }
         }
 
-        // Create faces for the tip
-        for (let j = 1; j <= segments; j++) {
-            faces.push(0, j, (j % segments) + 1);
+        // Function to add a child node
+        addChild(node) {
+            node.parent = this;
+            this.children.push(node);
         }
 
-        // Create faces for the sides
-        for (let i = 0; i < segments - 1; i++) {
-            const ring1_start = 1 + i * segments;
-            const ring2_start = 1 + (i + 1) * segments;
-            for (let j = 0; j < segments; j++) {
-                const p1 = ring1_start + j;
-                const p2 = ring1_start + ((j + 1) % segments);
-                const p3 = ring2_start + j;
-                const p4 = ring2_start + ((j + 1) % segments);
-                faces.push(p1, p3, p2, p2, p3, p4);
+        createBuffers() {
+            const vertexBuffer = this.gl.createBuffer();
+            this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertexBuffer);
+            this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.geometry.vertices), this.gl.STATIC_DRAW);
+
+            const facesBuffer = this.gl.createBuffer();
+            this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, facesBuffer);
+            this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.geometry.faces), this.gl.STATIC_DRAW);
+
+            return { vertex: vertexBuffer, faces: facesBuffer, faces_length: this.geometry.faces.length };
+        }
+
+        // Set this node's *base* transform (e.g., the flipper's position relative to the body)
+        setBaseTransform(matrix) {
+            this.baseMatrix = matrix;
+            this.localMatrix = matrix; // By default, local = base
+        }
+
+        // Set this node's *animated* local transform
+        setLocalTransform(matrix) {
+            this.localMatrix = matrix;
+        }
+
+        // Recursive function to update all matrices in the tree
+        updateWorldMatrix(parentWorldMatrix) {
+            if (parentWorldMatrix) {
+                this.worldMatrix = LIBS.multiply(this.localMatrix, parentWorldMatrix);
+            } else {
+                this.worldMatrix = this.localMatrix;
+            }
+
+            // Now, recursively update all children
+            for (const child of this.children) {
+                child.updateWorldMatrix(this.worldMatrix);
             }
         }
 
-        return { vertices, faces };
-    },
+        // Recursive function to draw this node and all its children
+        draw(shader) {
+            // Draw ourself (if we have geometry)
+            if (this.buffers) {
+                const gl = this.gl;
+                gl.uniformMatrix4fv(shader.locations.Mmatrix, false, this.worldMatrix);
 
-    generateDeformedEllipsoid: function (a, b, c, stack, step, color, amplitude, frequency) {
-        const vertices = [];
-        const faces = [];
-        for (let i = 0; i <= stack; i++) {
-            for (let j = 0; j <= step; j++) {
-                const u = i / stack;
-                const v = j / step;
-                const theta = u * Math.PI;
-                const phi = v * 2 * Math.PI;
+                gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.vertex);
 
-                // 1. Buat titik elipsoid dasar
-                const baseX = a * Math.sin(theta) * Math.cos(phi);
-                const baseY = b * Math.cos(theta);
-                const baseZ = c * Math.sin(theta) * Math.sin(phi);
+                // Stride is now 11 floats (3 pos, 3 color, 2 uv, 3 normal)
+                const stride = 4 * (3 + 3 + 2 + 3);
+                gl.vertexAttribPointer(shader.locations.position, 3, gl.FLOAT, false, stride, 0);
+                gl.vertexAttribPointer(shader.locations.color, 3, gl.FLOAT, false, stride, 3 * 4);
+                gl.vertexAttribPointer(shader.locations.texcoord, 2, gl.FLOAT, false, stride, 6 * 4);
+                gl.vertexAttribPointer(shader.locations.normal, 3, gl.FLOAT, false, stride, 8 * 4);
 
-                // 2. Buat faktor "noise" untuk deformasi
-                // Kita gunakan posisi dasar sebagai input agar noise-nya tidak seragam
-                const noise = (Math.sin(baseX * frequency) + Math.cos(baseZ * frequency) + Math.sin(baseY * frequency)) / 3;
-                
-                // 3. Terapkan deformasi. 
-                // Kita tambahkan 1.0 agar bentuknya "mengembang" keluar
-                const deformation = 1.0 + (amplitude * noise);
 
-                const finalX = baseX * deformation;
-                const finalY = baseY * deformation;
-                const finalZ = baseZ * deformation;
-
-                // 4. Normal adalah vektor dari pusat ke titik akhir (untuk lighting)
-                let nx = finalX, ny = finalY, nz = finalZ;
-                const mag = Math.sqrt(nx*nx + ny*ny + nz*nz);
-                if (mag > 0) {
-                    nx /= mag; ny /= mag; nz /= mag;
+                if (this.texture) {
+                    gl.activeTexture(gl.TEXTURE0);
+                    gl.bindTexture(gl.TEXTURE_2D, this.texture);
+                    gl.uniform1i(shader.locations.sampler, 0);
+                    gl.uniform1i(shader.locations.u_useTexture, 1);
+                } else {
+                    gl.uniform1i(shader.locations.u_useTexture, 0);
                 }
 
-                // x, y, z, r, g, b, u, v, nx, ny, nz
-                vertices.push(finalX, finalY, finalZ, color[0], color[1], color[2], v, u, nx, ny, nz);
-            }
-        }
-        
-        // Face logic-nya sama persis dengan generateSphere
-        for (let i = 0; i < stack; i++) {
-            for (let j = 0; j < step; j++) {
-                const p1 = i * (step + 1) + j;
-                const p2 = p1 + 1;
-                const p3 = p1 + (step + 1);
-                const p4 = p3 + 1;
-                faces.push(p1, p2, p4, p1, p4, p3);
-            }
-        }
-        return { vertices, faces };
-    },
-
-    generateIrregularExtrudedPolygon: function(sides, radius, height, color, irregularityFactor = 0.2) {
-        const vertices = [];
-        const faces = [];
-        const numVerticesPerRing = sides; // Jumlah titik per cincin (atas/bawah)
-
-        // 1. Buat Poin-poin Dasar Poligon (Top Ring)
-        const topRingPoints = [];
-        for (let i = 0; i < sides; i++) {
-            const angle = (i / sides) * 2 * Math.PI;
-            
-            // Tambahkan irreguleritas (acak) pada radius setiap titik
-            const currentRadius = radius + (Math.random() - 0.5) * radius * irregularityFactor;
-            
-            const x = currentRadius * Math.cos(angle);
-            const z = currentRadius * Math.sin(angle);
-            topRingPoints.push([x, z]);
-        }
-
-        // 2. Vertices untuk Bagian ATAS (Top Cap)
-        // Center vertex atas
-        vertices.push(0, height / 2, 0, color[0], color[1], color[2], 0.5, 0.5, 0, 1, 0); // Normal ke atas (Y+)
-        const topCenterIndex = 0;
-
-        // Vertices di pinggir atas
-        for (let i = 0; i < sides; i++) {
-            const p = topRingPoints[i];
-            // Normal untuk top cap adalah (0,1,0)
-            vertices.push(p[0], height / 2, p[1], color[0], color[1], color[2], (p[0]/radius+1)/2, (p[1]/radius+1)/2, 0, 1, 0);
-        }
-        
-        // 3. Faces untuk Bagian ATAS (Top Cap)
-        for (let i = 0; i < sides; i++) {
-            const currentEdgeIndex = topCenterIndex + 1 + i;
-            const nextEdgeIndex = topCenterIndex + 1 + ((i + 1) % sides);
-            faces.push(topCenterIndex, currentEdgeIndex, nextEdgeIndex);
-        }
-
-        // 4. Vertices untuk Bagian BAWAH (Bottom Cap)
-        // Center vertex bawah
-        vertices.push(0, -height / 2, 0, color[0], color[1], color[2], 0.5, 0.5, 0, -1, 0); // Normal ke bawah (Y-)
-        const bottomCenterIndex = vertices.length / 11 - 1; // Index setelah semua vertex atas
-
-        // Vertices di pinggir bawah (mirip dengan atas, tapi Y-nya negatif)
-        for (let i = 0; i < sides; i++) {
-            const p = topRingPoints[i]; // Gunakan poin yang sama agar bentuknya lurus
-            // Normal untuk bottom cap adalah (0,-1,0)
-            vertices.push(p[0], -height / 2, p[1], color[0], color[1], color[2], (p[0]/radius+1)/2, (p[1]/radius+1)/2, 0, -1, 0);
-        }
-
-        // 5. Faces untuk Bagian BAWAH (Bottom Cap)
-        for (let i = 0; i < sides; i++) {
-            const currentEdgeIndex = bottomCenterIndex + 1 + i;
-            const nextEdgeIndex = bottomCenterIndex + 1 + ((i + 1) % sides);
-            // Urutan harus terbalik agar normal menghadap ke bawah
-            faces.push(bottomCenterIndex, nextEdgeIndex, currentEdgeIndex); 
-        }
-
-        // 6. Vertices dan Faces untuk SISI SAMPING (Side Walls)
-        for (let i = 0; i < sides; i++) {
-            const p = topRingPoints[i];
-            const p_next = topRingPoints[(i + 1) % sides];
-
-            const topVertexIndex = topCenterIndex + 1 + i;
-            const bottomVertexIndex = bottomCenterIndex + 1 + i;
-
-            const topNextVertexIndex = topCenterIndex + 1 + ((i + 1) % sides);
-            const bottomNextVertexIndex = bottomCenterIndex + 1 + ((i + 1) % sides);
-
-            // Hitung normal untuk sisi samping (vector tegak lurus ke garis pinggir)
-            // Ini akan sedikit tricky karena titiknya tidak simetris.
-            // Kita bisa ambil normalnya tegak lurus ke segmen garis p - p_next
-            const edgeVecX = p_next[0] - p[0];
-            const edgeVecZ = p_next[1] - p[1];
-            
-            // Normal di XY plane tegak lurus dengan edgeVec adalah (-edgeVecZ, edgeVecX)
-            let normalX = -edgeVecZ;
-            let normalZ = edgeVecX;
-            let normalY = 0; // Karena ini dinding vertikal
-
-            const magN = Math.sqrt(normalX*normalX + normalY*normalY + normalZ*normalZ);
-            if (magN > 0) {
-                normalX /= magN;
-                normalZ /= magN;
+                gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.buffers.faces);
+                gl.drawElements(gl.TRIANGLES, this.buffers.faces_length, gl.UNSIGNED_SHORT, 0);
             }
 
-            // Normal untuk setiap vertex di sisi samping
-            // Untuk memastikan konsistensi, kita perlu menghitung rata-rata normal dari face yang berbagi vertex
-            // Namun, untuk sederhana, kita bisa gunakan normal dari segmen garis saat ini untuk 4 vertex ini
-            // Ini mungkin sedikit kurang halus di sudut, tapi cukup untuk demonstrasi
-            const startIndexSideVerts = vertices.length / 11;
-            
-            // Vertex 1 (Top, Current)
-            vertices.push(p[0], height / 2, p[1], color[0], color[1], color[2], 0, 1, normalX, normalY, normalZ);
-            // Vertex 2 (Top, Next)
-            vertices.push(p_next[0], height / 2, p_next[1], color[0], color[1], color[2], 1, 1, normalX, normalY, normalZ);
-            // Vertex 3 (Bottom, Current)
-            vertices.push(p[0], -height / 2, p[1], color[0], color[1], color[2], 0, 0, normalX, normalY, normalZ);
-            // Vertex 4 (Bottom, Next)
-            vertices.push(p_next[0], -height / 2, p_next[1], color[0], color[1], color[2], 1, 0, normalX, normalY, normalZ);
-
-            // Faces untuk satu sisi samping (quad)
-            // (v1, v3, v4) (v1, v4, v2)
-            // Perhatikan bahwa kita tidak menggunakan index dari cap untuk sisi. Kita membuat vertex baru agar normalnya terpisah.
-            faces.push(startIndexSideVerts + 0, startIndexSideVerts + 2, startIndexSideVerts + 3); // Triangle 1
-            faces.push(startIndexSideVerts + 0, startIndexSideVerts + 3, startIndexSideVerts + 1); // Triangle 2
-        }
-
-
-        return { vertices, faces };
-    },
-
-    // --- Fungsi Baru: Bidang Air ---
-    generateWaterPlane: function(width, depth, segmentsW, segmentsD, waterColor) {
-        const vertices = [];
-        const faces = [];
-        const halfWidth = width / 2;
-        const halfDepth = depth / 2;
-        const segmentWidth = width / segmentsW;
-        const segmentDepth = depth / segmentsD;
-
-        for (let i = 0; i <= segmentsW; i++) {
-            for (let j = 0; j <= segmentsD; j++) {
-                const x = i * segmentWidth - halfWidth;
-                const z = j * segmentDepth - halfDepth;
-                const y = 0; // Bidang datar di Y=0
-
-                // Normal selalu ke atas untuk bidang horizontal (0, 1, 0)
-                const nx = 0;
-                const ny = 1;
-                const nz = 0;
-
-                // UV coordinates
-                const u = i / segmentsW;
-                const v = j / segmentsD;
-
-                // x, y, z, r, g, b, u, v, nx, ny, nz
-                vertices.push(x, y, z, waterColor[0], waterColor[1], waterColor[2], u, v, nx, ny, nz);
+            // Now, recursively draw all children
+            for (const child of this.children) {
+                child.draw(shader);
             }
         }
-
-        // Generate Faces
-        for (let i = 0; i < segmentsW; i++) {
-            for (let j = 0; j < segmentsD; j++) {
-                const p1 = i * (segmentsD + 1) + j;
-                const p2 = p1 + 1;
-                const p3 = (i + 1) * (segmentsD + 1) + j;
-                const p4 = p3 + 1;
-
-                faces.push(p1, p2, p4);
-                faces.push(p1, p4, p3);
-            }
-        }
-
-        return { vertices, faces };
-    },
-};
-
-// --- Prinplup PART CLASS ---
-// Represents a single drawable part of the Prinplup model.
-class PrinplupPart {
-    constructor(gl, geometry, texture = null, animationType = 'bodyBreathe') {
-        this.gl = gl;
-        this.geometry = geometry;
-        this.texture = texture;
-        this.animationType = animationType;
-        this.modelMatrix = LIBS.get_I4();
-        this.buffers = this.createBuffers();
     }
 
-    createBuffers() {
-        const vertexBuffer = this.gl.createBuffer();
-        this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertexBuffer);
-        this.gl.bufferData(this.gl.ARRAY_BUFFER, new Float32Array(this.geometry.vertices), this.gl.STATIC_DRAW);
 
-        const facesBuffer = this.gl.createBuffer();
-        this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, facesBuffer);
-        this.gl.bufferData(this.gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(this.geometry.faces), this.gl.STATIC_DRAW);
-
-        return { vertex: vertexBuffer, faces: facesBuffer, faces_length: this.geometry.faces.length };
-    }
-
-    // Set the local transformation for this part (e.g., move it up, to the side, etc.)
-    setTransform(transformMatrix) {
-        this.modelMatrix = transformMatrix;
-    }
-
-    draw(shader, parentMatrix, animValues = {}) {
-        const gl = this.gl;
-        // 1. Buat matriks animasi lokal (mulai sebagai identitas)
-        const animMatrix = LIBS.get_I4();
-        // 2. Terapkan animasi yang TEPAT berdasarkan tipe bagian ini
-        switch (this.animationType) {
-            case 'bodyBreathe':
-                // Pernapasan tubuh: Terapkan translasi Y
-                LIBS.translateY(animMatrix, animValues.body || 0.0);
-                break;
-            case 'eyeBreathe':
-                // Pernapasan mata: Terapkan skala Y (memipih/merenggang)
-                LIBS.scaleY(animMatrix, animValues.eye || 1.0);
-                break;
-            case 'diskBreathe':
-                // Pernapasan disk: Terapkan skala uniform (berdenyut)
-                LIBS.scale(animMatrix, animValues.disk || 1.0);
-                break;
-            case 'floatingIce':
-                // Animasi pulau mengambang: Terapkan translasi Y
-                LIBS.translateY(animMatrix, animValues.floatingIce || 0.0);
-                break;
-            case 'none':
-            default:
-                // Tidak melakukan apa-apa, animMatrix tetap identitas
-                break;
-        }
-        // 3. Gabungkan matriks:
-        // Urutan: (parent) * (local_transform) * (animasi)
-        // Ini menerapkan animasi di ruang lokal objek (sebelum ditranslasi/rotasi)
-        // Ini adalah cara yang benar untuk "scale in place".
-        const localAnimatedMatrix = LIBS.multiply(this.modelMatrix, animMatrix);
-        var finalMatrix = LIBS.multiply(localAnimatedMatrix, parentMatrix);
-        gl.uniformMatrix4fv(shader.locations.Mmatrix, false, finalMatrix);
-        gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.vertex);
-        
-        // Stride is now 11 floats (3 pos, 3 color, 2 uv, 3 normal)
-        const stride = 4 * (3 + 3 + 2 + 3); 
-        gl.vertexAttribPointer(shader.locations.position, 3, gl.FLOAT, false, stride, 0);
-        gl.vertexAttribPointer(shader.locations.color, 3, gl.FLOAT, false, stride, 3 * 4);
-        gl.vertexAttribPointer(shader.locations.texcoord, 2, gl.FLOAT, false, stride, 6 * 4);
-        gl.vertexAttribPointer(shader.locations.normal, 3, gl.FLOAT, false, stride, 8 * 4);
-
-
-        if (this.texture) {
-            gl.activeTexture(gl.TEXTURE0);
-            gl.bindTexture(gl.TEXTURE_2D, this.texture);
-            gl.uniform1i(shader.locations.sampler, 0);
-            gl.uniform1i(shader.locations.u_useTexture, 1);
-        } else {
-            gl.uniform1i(shader.locations.u_useTexture, 0);
-        }
-
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.buffers.faces);
-        gl.drawElements(gl.TRIANGLES, this.buffers.faces_length, gl.UNSIGNED_SHORT, 0);
-    }
-}
-
-// --- Prinplup CONTAINER CLASS ---
+// --- Prinplup CONTAINER CLASS (Refactored) ---
 // Manages all the parts that make up the Prinplup.
-class Prinplup {
-    constructor(gl, renderer) {
-        this.gl = gl;
-        this.renderer = renderer;
-        this.parts = [];
-        this.modelMatrix = LIBS.get_I4(); // This matrix will control the entire Prinplup's rotation
-        this.initParts();
-    }
+    class Prinplup {
+        constructor(gl, renderer) {
+            this.gl = gl;
+            this.renderer = renderer;
 
-    initParts() {
-        const gl = this.gl;
-        // Prinplup Colors
-        const C = {
-            BODY: [0.61, 0.84, 0.89], HEAD: [0.20, 0.38, 0.64], BEAK: [1.00, 0.84, 0.00], CAPE: [0.24, 0.42, 0.96],
-            EYE_W: [1.00, 1.00, 1.00], BLACK: [0.00, 0.00, 0.00], FEET: [1.00, 0.65, 0.00], WHITE: [1.00, 1.00, 1.00], TAIL: [0.08, 0.32, 0.60]
-        };
+            this.rootNode = new ModelNode(gl); // This node will be controlled by mouse drag
+            this.modelMatrix = LIBS.get_I4();  // This is the mouse-drag rotation matrix
 
-        // Helper function to create a translation matrix using your libs.js functions
-        const createTransform = (x, y, z) => {
-            const m = LIBS.get_I4();
-            LIBS.translateX(m, x);
-            LIBS.translateY(m, y);
-            LIBS.translateZ(m, z);
-            return m;
-        };
+            // Store references to nodes that need animation
+            this.animatedNodes = {
+                breathingNode: null,
+                eyeNodes: [],
+                leftHand: null,   // NEW
+                rightHand: null,   // NEW
+            };
 
-        const createOrientedTransform = (radX, radY, radZ, x, y) => {
-            // A. Calculate the precise 'z' on the surface
-            const termX = (x * x) / (radX * radX);
-            const termY = (y * y) / (radY * radY);
-            const z_on_surface = radZ * Math.sqrt(1.0 - termX - termY);
+            // NEW: Add a place to store base poses
+            this.baseTransforms = {
+                leftHand: LIBS.get_I4(),
+                rightHand: LIBS.get_I4()
+            };
 
-            // Add a tiny offset to prevent clipping
-            const z_final = z_on_surface + 0.01;
+            this.initParts();
+        }
 
-            // B. Calculate rotation angles to match the surface curve
-            const angleY = Math.atan2(x, z_final);
-            const angleX = -Math.atan2(y, z_final);
+        initParts() {
+            const gl = this.gl;
+            const C = {
+                BODY: [0.61, 0.84, 0.89], HEAD: [0.20, 0.38, 0.64], BEAK: [1.00, 0.84, 0.00], CAPE: [0.24, 0.42, 0.96],
+                EYE_W: [1.00, 1.00, 1.00], BLACK: [0.00, 0.00, 0.00], FEET: [1.00, 0.65, 0.00], WHITE: [1.00, 1.00, 1.00], TAIL: [0.08, 0.32, 0.60]
+            };
 
-            // C. Build the transformation matrix
-            const m = LIBS.get_I4(); // Start with a fresh identity matrix
+            const createTransform = (x, y, z) => {
+                const m = LIBS.get_I4();
+                LIBS.translateX(m, x);
+                LIBS.translateY(m, y);
+                LIBS.translateZ(m, z);
+                return m;
+            };
 
-            // Apply rotations (order matters: Y-axis first, then X-axis)
-            LIBS.rotateY(m, angleY);
-            LIBS.rotateX(m, angleX);
+            const createOrientedTransform = (radX, radY, radZ, x, y) => {
+                const termX = (x * x) / (radX * radX);
+                const termY = (y * y) / (radY * radZ); // Bug? Should be radY * radY
+                const z_on_surface = radZ * Math.sqrt(1.0 - termX - termY);
+                const z_final = z_on_surface + 0.01;
+                const angleY = Math.atan2(x, z_final);
+                const angleX = -Math.atan2(y, z_final);
+                const m = LIBS.get_I4();
+                LIBS.rotateY(m, angleY);
+                LIBS.rotateX(m, angleX);
+                LIBS.set_position(m, x, y, z_final);
+                return m;
+            };
 
-            // Apply the final position
-            LIBS.set_position(m, x, y, z_final);
+            const headTexture = this.renderer.loadTexture("Resource/prinplup_texture_bare.png");
+            const handTexture = this.renderer.loadTexture("Resource/prinplup_hand_texture.png");
 
-            return m; // Return the finished matrix
-        };
+            const body_profile = [
+                [0.0, 1.95, 0], [0.15, 1.95, 0], [0.3, 1.9, 0], [0.4, 1.8, 0], [0.475, 1.7, 0],
+                [0.5, 1.6, 0], [0.525, 1.5, 0], [0.53, 1.4, 0], [0.535, 1.3, 0], [0.55, 1.2, 0],
+                [0.57, 1.1, 0], [0.59, 1.0, 0], [0.62, 0.9, 0], [0.65, 0.8, 0], [0.70, 0.7, 0],
+                [0.75, 0.6, 0], [0.80, 0.5, 0], [0.82, 0.4, 0], [0.84, 0.3, 0], [0.86, 0.2, 0],
+                [0.88, 0.1, 0], [0.92, 0, 0], [0.94, -0.1, 0], [0.96, -0.2, 0], [0.96, -0.3, 0],
+                [0.96, -0.4, 0], [0.96, -0.5, 0], [0.96, -0.6, 0], [0.96, -0.7, 0], [0.96, -0.8, 0],
+                [0.96, -0.9, 0], [0.90, -1.0, 0], [0.84, -1.1, 0], [0.64, -1.2, 0], [0.44, -1.21, 0],
+                [0.24, -1.22, 0], [0.04, -1.23, 0], [0.0, -1.24, 0],
+            ];
 
-        const headTexture = this.renderer.loadTexture("Resource/prinplup_texture_bare.png");
-        const handTexture = this.renderer.loadTexture("Resource/prinplup_hand_texture.png");
+            // --- Build the Hierarchy ---
 
-        const body_profile = [
-            [0.0, 1.95, 0],
-            [0.15, 1.95, 0],
-            [0.3, 1.9, 0],
-            [0.4, 1.8, 0],
-            [0.475, 1.7, 0],
-            [0.5, 1.6, 0],
-            [0.525, 1.5, 0],
-            [0.53, 1.4, 0],
-            [0.535, 1.3, 0],
-            [0.55, 1.2, 0],   // Top point (neck)
-            [0.57, 1.1, 0],
-            [0.59, 1.0, 0],
-            [0.62, 0.9, 0],
-            [0.65, 0.8, 0],
-            [0.70, 0.7, 0],
-            [0.75, 0.6, 0],
-            [0.80, 0.5, 0],
-            [0.82, 0.4, 0],
-            [0.84, 0.3, 0],
-            [0.86, 0.2, 0],
-            [0.88, 0.1, 0],
-            [0.92, 0, 0],
-            [0.94, -0.1, 0],   // Widest part of the belly
-            [0.96, -0.2, 0],
-            [0.96, -0.3, 0],
-            [0.96, -0.4, 0],
-            [0.96, -0.5, 0],
-            [0.96, -0.6, 0],
-            [0.96, -0.7, 0],
-            [0.96, -0.8, 0],
-            [0.96, -0.9, 0],
-            [0.90, -1.0, 0],
-            [0.84, -1.1, 0],
-            [0.64, -1.2, 0],
-            [0.44, -1.21, 0],
-            [0.24, -1.22, 0],
-            [0.04, -1.23, 0],
-            [0.0, -1.24, 0],
-        ];
+            // 1. Create the invisible "breathing" node.
+            // All parts that move up/down together will be a child of this.
+            const breathingNode = new ModelNode(gl);
+            this.rootNode.addChild(breathingNode);
+            this.animatedNodes.breathingNode = breathingNode;
 
-        // Define parts and their local transformations
-        const partDefinitions = [
-            // NEW Prinplup Body
-            {
-                geom: Geometry.generateLathe(body_profile, 30, C.BODY),
-                trans: (() => {
-                    const m = createTransform(0, 0.2, 0);
-                    LIBS.rotateY(m, Math.PI / 2);
-                    LIBS.scale(m, 1.2);
-                    return m
-                })(), // Slightly raise the body
-                texture: headTexture
-            },
-            { geom: Geometry.generateCircle(0.17, 20, C.WHITE), trans: createOrientedTransform(0.6, 1.1, 1.15, -0.4, 0.25)},
-            { geom: Geometry.generateCircle(0.17, 20, C.WHITE), trans: createOrientedTransform(0.6, 1.1, 1.15, 0.4, 0.25)},
-            // { geom: Geometry.generateCircle(0.17, 20, C.HEAD), trans: createOrientedTransform(0.6, 1.2, 1.42, 0.4, -0.4)},
-            // { geom: Geometry.generateCircle(0.17, 20, C.BEAK), trans: createOrientedTransform(0.6, -1, 1.5, -0.4, -0.4)},
-            { geom: Geometry.generateCircle(0.17, 20, C.WHITE), trans: createTransform(-0.4, -0.4, 0.94)},
-            { geom: Geometry.generateCircle(0.17, 20, C.WHITE), trans: createTransform(0.4, -0.4, 0.94)},
-            
+            // 2. Create and add all parts as children of 'breathingNode'
 
-            // Round disk passing head
-            { geom: Geometry.generateSphere(0.7, 0.12, 0.55, 20, 20, C.BEAK), trans: (() => {
+            // Body
+            const bodyNode = new ModelNode(gl, Geometry.generateLathe(body_profile, 30, C.BODY), headTexture);
+            const bodyTrans = (() => {
+                const m = createTransform(0, 0.2, 0);
+                LIBS.rotateY(m, Math.PI / 2);
+                LIBS.scale(m, 1.2);
+                return m
+            })();
+            bodyNode.setBaseTransform(bodyTrans);
+            breathingNode.addChild(bodyNode);
+
+            // Body Decorations
+            const deco1 = new ModelNode(gl, Geometry.generateCircle(0.17, 20, C.WHITE));
+            deco1.setBaseTransform(createOrientedTransform(0.6, 1.1, 1.15, -0.4, 0.25));
+            breathingNode.addChild(deco1);
+
+            const deco2 = new ModelNode(gl, Geometry.generateCircle(0.17, 20, C.WHITE));
+            deco2.setBaseTransform(createOrientedTransform(0.6, 1.1, 1.15, 0.4, 0.25));
+            breathingNode.addChild(deco2);
+
+            const deco3 = new ModelNode(gl, Geometry.generateCircle(0.17, 20, C.WHITE));
+            deco3.setBaseTransform(createTransform(-0.4, -0.4, 0.94));
+            breathingNode.addChild(deco3);
+
+            const deco4 = new ModelNode(gl, Geometry.generateCircle(0.17, 20, C.WHITE));
+            deco4.setBaseTransform(createTransform(0.4, -0.4, 0.94));
+            breathingNode.addChild(deco4);
+
+            // Head Disks
+            const disk1 = new ModelNode(gl, Geometry.generateSphere(0.7, 0.12, 0.55, 20, 20, C.BEAK));
+            disk1.setBaseTransform((() => {
                 let m = createTransform(-0.2, 2.1, 0);
-                // LIBS.rotateX(m, LIBS.degToRad(60))
-                // LIBS.rotateY(m, LIBS.degToRad(60));
                 LIBS.rotateZ(m, LIBS.degToRad(120));
                 return m;
-            })(), animationType: 'bodyBreathe'},
-            { geom: Geometry.generateSphere(0.7, 0.12, 0.55, 20, 20, C.BEAK), trans: (() => {
+            })());
+            breathingNode.addChild(disk1);
+
+            const disk2 = new ModelNode(gl, Geometry.generateSphere(0.7, 0.12, 0.55, 20, 20, C.BEAK));
+            disk2.setBaseTransform((() => {
                 let m = createTransform(0.2, 2.1, 0);
-                // LIBS.rotateX(m, LIBS.degToRad(60))
-                // LIBS.rotateY(m, LIBS.degToRad(60));
                 LIBS.rotateZ(m, LIBS.degToRad(60));
                 return m;
-            })(), animationType: 'bodyBreathe'},
+            })());
+            breathingNode.addChild(disk2);
 
-            // Eyes
-            { geom: Geometry.generateAngryEye(0.15, 0.2, 0.1, 10, 10, 130, C.WHITE), trans: (() => {
+            // Eyes (These are animated, so we save them)
+            const leftEye1 = new ModelNode(gl, Geometry.generateAngryEye(0.15, 0.2, 0.1, 10, 10, 130, C.WHITE));
+            leftEye1.setBaseTransform((() => {
                 let m = createTransform(-0.3, 1.9, 0.4);
                 LIBS.rotateZ(m, LIBS.degToRad(330));
                 return m;
-            }) (), animationType: 'eyeBreathe' },
-            { geom: Geometry.generateAngryEye(0.1, 0.15, 0.12, 10, 10, 130, C.HEAD), trans: (() => {
+            }) ());
+            breathingNode.addChild(leftEye1);
+            this.animatedNodes.eyeNodes.push(leftEye1);
+
+            const leftEye2 = new ModelNode(gl, Geometry.generateAngryEye(0.1, 0.15, 0.12, 10, 10, 130, C.HEAD));
+            leftEye2.setBaseTransform((() => {
                 let m = createTransform(-0.33, 1.9, 0.42);
                 LIBS.rotateZ(m, LIBS.degToRad(330));
                 return m;
-            }) (), animationType: 'eyeBreathe' },
-            { geom: Geometry.generateAngryEye(0.07, 0.12, 0.12, 10, 10, 130, C.BLACK), trans: (() => {
+            }) ());
+            breathingNode.addChild(leftEye2);
+            this.animatedNodes.eyeNodes.push(leftEye2);
+
+            const leftEye3 = new ModelNode(gl, Geometry.generateAngryEye(0.07, 0.12, 0.12, 10, 10, 130, C.BLACK));
+            leftEye3.setBaseTransform((() => {
                 let m = createTransform(-0.3, 1.9, 0.45);
                 LIBS.rotateZ(m, LIBS.degToRad(330));
                 return m;
-            }) (), animationType: 'eyeBreathe' },
-            { geom: Geometry.generateSphere(0.03, 0.03, 0.07, 10, 10, C.WHITE), trans: createTransform(-0.3, 1.93, 0.52), animationType: 'eyeBreathe'},
+            }) ());
+            breathingNode.addChild(leftEye3);
+            this.animatedNodes.eyeNodes.push(leftEye3);
 
-            { geom: Geometry.generateAngryEye(0.15, 0.2, 0.1, 10, 10, 130, C.WHITE), trans: (() => {
+            const leftEye4 = new ModelNode(gl, Geometry.generateSphere(0.03, 0.03, 0.07, 10, 10, C.WHITE));
+            leftEye4.setBaseTransform(createTransform(-0.3, 1.93, 0.52));
+            breathingNode.addChild(leftEye4);
+            this.animatedNodes.eyeNodes.push(leftEye4);
+
+            // Right Eye
+            const rightEye1 = new ModelNode(gl, Geometry.generateAngryEye(0.15, 0.2, 0.1, 10, 10, 130, C.WHITE));
+            rightEye1.setBaseTransform((() => {
                 let m = createTransform(0.3, 1.9, 0.4);
                 LIBS.rotateZ(m, LIBS.degToRad(30));
                 return m;
-            }) (), animationType: 'eyeBreathe' },
-            { geom: Geometry.generateAngryEye(0.1, 0.15, 0.12, 10, 10, 130, C.HEAD), trans: (() => {
+            }) ());
+            breathingNode.addChild(rightEye1);
+            this.animatedNodes.eyeNodes.push(rightEye1);
+
+            const rightEye2 = new ModelNode(gl, Geometry.generateAngryEye(0.1, 0.15, 0.12, 10, 10, 130, C.HEAD));
+            rightEye2.setBaseTransform((() => {
                 let m = createTransform(0.33, 1.9, 0.42);
                 LIBS.rotateZ(m, LIBS.degToRad(30));
                 return m;
-            }) (), animationType: 'eyeBreathe' },
-            { geom: Geometry.generateAngryEye(0.07, 0.12, 0.12, 10, 10, 130, C.BLACK), trans: (() => {
+            }) ());
+            breathingNode.addChild(rightEye2);
+            this.animatedNodes.eyeNodes.push(rightEye2);
+
+            const rightEye3 = new ModelNode(gl, Geometry.generateAngryEye(0.07, 0.12, 0.12, 10, 10, 130, C.BLACK));
+            rightEye3.setBaseTransform((() => {
                 let m = createTransform(0.3, 1.9, 0.45);
                 LIBS.rotateZ(m, LIBS.degToRad(30));
                 return m;
-            }) (), animationType: 'eyeBreathe' },
-            { geom: Geometry.generateSphere(0.03, 0.03, 0.07, 10, 10, C.WHITE), trans: createTransform(0.3, 1.93, 0.52), animationType: 'eyeBreathe'},
+            }) ());
+            breathingNode.addChild(rightEye3);
+            this.animatedNodes.eyeNodes.push(rightEye3);
 
-            // Beak: Beak + Cone for Top and Front
-            { geom: Geometry.generateBeak(0.22, 0.35, 0.55, 20, C.BEAK), trans: (() => {
-                    let m = createTransform(0, 1.8, 0.9);
-                    LIBS.rotateX(m, LIBS.degToRad(5));
-                    return m;
-                })()},
-            { geom: Geometry.generateCone(0.15, 0.3, 15, C.BEAK), trans: (() => {
-                    let m = createTransform(0, 1.95, 0.6);
-                    LIBS.rotateX(m, LIBS.degToRad(-15));
-                    return m;
-                })()},
-            // { geom: Geometry.generateCone(0.18, 0.3, 15, C.BEAK), trans: (() => {
-            //         let m = createTransform(0, 1.6, 0.8);
-            //         LIBS.rotateX(m, LIBS.degToRad(120));
-            //         return m;
-            //     })()},
+            const rightEye4 = new ModelNode(gl, Geometry.generateSphere(0.03, 0.03, 0.07, 10, 10, C.WHITE));
+            rightEye4.setBaseTransform(createTransform(0.3, 1.93, 0.52));
+            breathingNode.addChild(rightEye4);
+            this.animatedNodes.eyeNodes.push(rightEye4);
+
+            // Beak
+            const beak = new ModelNode(gl, Geometry.generateBeak(0.22, 0.35, 0.55, 20, C.BEAK));
+            beak.setBaseTransform((() => {
+                let m = createTransform(0, 1.8, 0.9);
+                LIBS.rotateX(m, LIBS.degToRad(5));
+                return m;
+            })());
+            breathingNode.addChild(beak);
+
+            const beakCone = new ModelNode(gl, Geometry.generateCone(0.15, 0.3, 15, C.BEAK));
+            beakCone.setBaseTransform((() => {
+                let m = createTransform(0, 1.95, 0.6);
+                LIBS.rotateX(m, LIBS.degToRad(-15));
+                return m;
+            })());
+            breathingNode.addChild(beakCone);
 
             // Hands
-            { geom: Geometry.generateSphere(0.2, 1.5, 0.5, 15, 15, C.TAIL),
-                trans: (() => {
-                    let m = createTransform(-1.2, 0.42, 0.1);
-                    LIBS.rotateZ(m, LIBS.degToRad(-40));
-                    LIBS.rotateX(m, LIBS.degToRad(-10));
-                    return m;
-                })(),
-                texture: handTexture
-            },
-            { geom: Geometry.generateSphere(0.2, 1.5, 0.5, 15, 15, C.TAIL),
-                trans: (() => {
-                    let m = createTransform(1.2, 0.42, 0.1);
-                    LIBS.rotateZ(m, LIBS.degToRad(40));
-                    LIBS.rotateX(m, LIBS.degToRad(-10));
-                    return m;
-                })(),
-                texture: handTexture
-            },
+            const leftHand = new ModelNode(gl, Geometry.generateSphere(0.2, 1.5, 0.5, 15, 15, C.TAIL), handTexture);
+            // NEW: Store the matrix and the node
+            const leftHandMatrix = (() => {
+                let m = createTransform(-1.2, 0.42, 0.1);
+                LIBS.rotateZ(m, LIBS.degToRad(-40));
+                LIBS.rotateX(m, LIBS.degToRad(-10));
+                return m;
+            })();
+            leftHand.setBaseTransform(leftHandMatrix);
+            this.baseTransforms.leftHand = leftHandMatrix;
+            this.animatedNodes.leftHand = leftHand;
+            breathingNode.addChild(leftHand);
 
-            // Legs (Body-Feet)
-            { geom: Geometry.generateSphere(0.3, 0.8, 0.4, 10, 10, C.BODY), trans: createTransform(-0.65, -1.2, 0.1), animationType: 'none'},
-            { geom: Geometry.generateSphere(0.3, 0.8, 0.4, 10, 10, C.BODY), trans: createTransform(0.65, -1.2, 0.1), animationType: 'none'},
-            // Feet
-            { geom: Geometry.generateSphere(0.3, 0.12, 0.35, 10, 10, C.FEET), trans: createTransform(-0.65, -1.9, 0.24), animationType: 'none'},
-            { geom: Geometry.generateSphere(0.3, 0.1, 0.5, 10, 10, C.FEET), trans: createTransform(-0.65, -2, 0.4), animationType: 'none'},
+            const rightHand = new ModelNode(gl, Geometry.generateSphere(0.2, 1.5, 0.5, 15, 15, C.TAIL), handTexture);
+            // NEW: Store the matrix and the node
+            const rightHandMatrix = (() => {
+                let m = createTransform(1.2, 0.42, 0.1);
+                LIBS.rotateZ(m, LIBS.degToRad(40));
+                LIBS.rotateX(m, LIBS.degToRad(-10));
+                return m;
+            })();
+            rightHand.setBaseTransform(rightHandMatrix);
+            this.baseTransforms.rightHand = rightHandMatrix;
+            this.animatedNodes.rightHand = rightHand;
+            breathingNode.addChild(rightHand);
 
-            { geom: Geometry.generateSphere(0.3, 0.12, 0.35, 10, 10, C.FEET), trans: createTransform(0.65, -1.9, 0.24), animationType: 'none'},
-            { geom: Geometry.generateSphere(0.3, 0.1, 0.6, 10, 10, C.FEET), trans: createTransform(0.65, -2, 0.4), animationType: 'none'},
+            // Legs (Creating parent nodes for feet)
+            const leftLeg = new ModelNode(gl, Geometry.generateSphere(0.3, 0.8, 0.4, 10, 10, C.BODY));
+            leftLeg.setBaseTransform(createTransform(-0.65, -1.2, 0.1));
+            breathingNode.addChild(leftLeg); // Add leg to body
 
-            // Sirip Belakang
-            {
-                geom: Geometry.generateTaperedShapeFromSpline(
-                    // Control points define the curve's path from base to tip
-                    [
-                        [0.0, -0, -0.2],  // Start point on the lower back
-                        [0.0, -0.9, -1.2],  // Mid-point, curving down and back
-                        [0.0, -1.2, -2.0]   // End point, the tip of the tail
-                    ],
-                    50,   // Segments for a smooth curve
-                    [0.9, 0.6],  // Start Radii [thickness, width] - wide and flat at the base
-                    [0.01, 0.01], // End Radii [thickness, width] - narrow and thin at the tip
-                    20,   // Radial segments
-                    C.TAIL // Using the head color for the tail
-                ),
-                trans: (() => {
-                    const m = createTransform(0, -0.2, 0.1);
-                    // LIBS.scale(m, 1.2);
-                    return m
-                })(), // No transformation needed, points are in world space
-            }
-        ]
-        partDefinitions.forEach(def => {
-            // Ambil tipe animasi, atau default ke 'bodyBreathe'
-            const animType = def.animationType || 'bodyBreathe';
-            const part = new PrinplupPart(gl, def.geom, def.texture, animType);
-            part.setTransform(def.trans);
-            this.parts.push(part);
-        });
+            const leftFoot1 = new ModelNode(gl, Geometry.generateSphere(0.3, 0.12, 0.35, 10, 10, C.FEET));
+            leftFoot1.setBaseTransform(createTransform(-0.65, -1.9, 0.24));
+            breathingNode.addChild(leftFoot1); // Add foot to body
+
+            const leftFoot2 = new ModelNode(gl, Geometry.generateSphere(0.3, 0.1, 0.5, 10, 10, C.FEET));
+            leftFoot2.setBaseTransform(createTransform(-0.65, -2, 0.4));
+            breathingNode.addChild(leftFoot2); // Add foot to body
+
+            const rightLeg = new ModelNode(gl, Geometry.generateSphere(0.3, 0.8, 0.4, 10, 10, C.BODY));
+            rightLeg.setBaseTransform(createTransform(0.65, -1.2, 0.1));
+            breathingNode.addChild(rightLeg);
+
+            const rightFoot1 = new ModelNode(gl, Geometry.generateSphere(0.3, 0.12, 0.35, 10, 10, C.FEET));
+            rightFoot1.setBaseTransform(createTransform(0.65, -1.9, 0.24));
+            breathingNode.addChild(rightFoot1);
+
+            const rightFoot2 = new ModelNode(gl, Geometry.generateSphere(0.3, 0.1, 0.6, 10, 10, C.FEET));
+            rightFoot2.setBaseTransform(createTransform(0.65, -2, 0.4));
+            breathingNode.addChild(rightFoot2);
+
+            // Tail
+            const tail = new ModelNode(gl, Geometry.generateTaperedShapeFromSpline(
+                [[0.0, -0, -0.2], [0.0, -0.9, -1.2], [0.0, -1.2, -2.0]],
+                50, [0.9, 0.6], [0.01, 0.01], 20, C.TAIL
+            ));
+            tail.setBaseTransform(createTransform(0, -0.2, 0.1));
+            breathingNode.addChild(tail);
+        }
+
+        // NEW: Central animation update function
+        updateAnimation(animValues) {
+            // 1. Apply 'bodyBreathe' Y-translation to the main breathing node
+            const T_breath = LIBS.get_I4();
+            LIBS.translateY(T_breath, animValues.body + 2.5);
+            this.animatedNodes.breathingNode.setLocalTransform(T_breath);
+
+            // Emang matanya goyang2 ta?
+            // // 2. Apply 'eyeBreathe' Y-scale to all eye parts
+            // const S_eye = LIBS.get_I4();
+            // LIBS.scaleY(S_eye, animValues.eye || 1.0);
+            //
+            // this.animatedNodes.eyeNodes.forEach(eyeNode => {
+            //     // Combine the base pose with the animation: M_local = M_base * M_anim
+            //     const finalEyeMatrix = LIBS.multiply(eyeNode.baseMatrix, S_eye);
+            //     eyeNode.setLocalTransform(finalEyeMatrix);
+            // });
+
+            // (Future animations like 'diskBreathe' would be added here)
+
+            // 3. NEW: Apply 'flapAngle' Z-rotation to hands
+            const flapAngle = animValues.flapAngle || 0.0;
+            const pivotY = 1.5; // From the hand's geometry radius
+            const pivotX = 0.7;
+
+            // Create pivot matrices
+            let T_up = LIBS.get_I4();
+            LIBS.translateY(T_up, -pivotY);
+            LIBS.translateX(T_up, pivotX);
+            let T_down = LIBS.get_I4();
+            LIBS.translateY(T_down, pivotY);
+            LIBS.translateX(T_down, -pivotX);
+
+            // --- Left Hand ---
+            const R_left = LIBS.get_I4();
+            LIBS.rotateZ(R_left, flapAngle);
+
+            // Combine for animation matrix: M_anim = T_up * R_z * T_down
+            let leftAnim = LIBS.multiply(R_left, T_down);
+            leftAnim = LIBS.multiply(T_up, leftAnim);
+
+            // Combine with base: M_final = M_base * M_anim
+            const leftFinal = LIBS.multiply(this.baseTransforms.leftHand, leftAnim);
+            this.animatedNodes.leftHand.setLocalTransform(leftFinal);
+
+            // --- Right Hand ---
+            // Create pivot matrices
+            T_up = LIBS.get_I4();
+            LIBS.translateY(T_up, -pivotY);
+            LIBS.translateX(T_up, -pivotX);
+            T_down = LIBS.get_I4();
+            LIBS.translateY(T_down, pivotY);
+            LIBS.translateX(T_down, pivotX);
+
+            const R_right = LIBS.get_I4();
+            LIBS.rotateZ(R_right, -flapAngle); // Opposite direction
+
+            // Combine for animation matrix: M_anim = T_up * R_z * T_down
+            let rightAnim = LIBS.multiply(R_right, T_down);
+            rightAnim = LIBS.multiply(T_up, rightAnim);
+
+            // Combine with base: M_final = M_base * M_anim
+            const rightFinal = LIBS.multiply(this.baseTransforms.rightHand, rightAnim);
+            this.animatedNodes.rightHand.setLocalTransform(rightFinal);
+        }
+
+        draw(shader, parentMatrix) {
+            // 'parentMatrix' is the animated matrix from the ice island
+            // 'this.modelMatrix' is the mouse-drag rotation
+            const finalParentMatrix = LIBS.multiply(parentMatrix, this.modelMatrix);
+
+            // Update all world matrices starting from the root
+            this.rootNode.updateWorldMatrix(finalParentMatrix);
+
+            // Start the recursive draw
+            this.rootNode.draw(shader);
+        }
     }
 
-    draw(shader, animValues, parentMatrix = LIBS.get_I4()) {
-        // 'parentMatrix' sekarang adalah matriks animasi pulau es (atau Identity)
-        // 'this.modelMatrix' adalah matriks rotasi global dari mouse drag
-        
-        // Gabungkan matriks rotasi mouse DENGAN matriks parent dari pulau es
-        const finalParentMatrix = LIBS.multiply(parentMatrix, this.modelMatrix);
-        this.parts.forEach(part => {
-            part.draw(shader, finalParentMatrix, animValues);
-        });
-    }
-}
+// --- ENVIRONMENT CONTAINER CLASS (Refactored) ---
+    class Environment {
+        constructor(gl, renderer) {
+            this.gl = gl;
+            this.renderer = renderer;
 
-// --- ENVIRONMENT CONTAINER CLASS ---
-// Mengelola semua bagian dari environment
-class Environment {
-    constructor(gl, renderer) {
-        this.gl = gl;
-        this.renderer = renderer;
-        this.parts = [];
-        this.modelMatrix = LIBS.get_I4(); // Matriks environment (statis)
-        this.animationTime = 0; // Waktu untuk melacak animasi
-        this.iceIslandAnimMatrix = LIBS.get_I4(); // Untuk menyimpan matriks animasi pulau es secara terpisah
-        this.initParts();
-    }
+            this.rootNode = new ModelNode(gl); // Root of the environment scene
+            this.modelMatrix = LIBS.get_I4();  // Static matrix for the whole env
 
-    initParts() {
-        const gl = this.gl;
-        
-        const createTransform = (x, y, z) => {
-            const m = LIBS.get_I4();
-            LIBS.translateX(m, x);
-            LIBS.translateY(m, y);
-            LIBS.translateZ(m, z);
-            return m;
-        };
+            this.animatedNodes = {
+                iceIsland: null
+            };
+            this.animationTime = 0;
 
-        const C = {
-            SNOW_WHITE: [0.95, 0.98, 1.0], 
-            ICE_BLUE: [0.6, 0.8, 0.95], 
-            WATER_BLUE: [0.192, 0.502, 0.647]
-        };
+            this.initParts();
+        }
 
-        const partDefinitions = [
-            // 1. Pulau Es
-            {
-                geom: Geometry.generateIrregularExtrudedPolygon(
-                    6, 6, 1, C.SNOW_WHITE, 0.5
-                ),
-                trans: createTransform(0, -2.7, 0), 
-                animationType: 'floatingIce'
-            },
+        initParts() {
+            const gl = this.gl;
+
+            const createTransform = (x, y, z) => {
+                const m = LIBS.get_I4();
+                LIBS.translateX(m, x);
+                LIBS.translateY(m, y);
+                LIBS.translateZ(m, z);
+                return m;
+            };
+
+            const C = {
+                SNOW_WHITE: [0.95, 0.98, 1.0],
+                ICE_BLUE: [0.6, 0.8, 0.95],
+                WATER_BLUE: [0.192, 0.502, 0.647]
+            };
+
+            // 1. Ice Island
+            const iceIslandNode = new ModelNode(gl, Geometry.generateIrregularExtrudedPolygon(6, 6, 1, C.SNOW_WHITE, 0.5));
+            iceIslandNode.setBaseTransform(createTransform(0, -2.7, 0));
+            this.rootNode.addChild(iceIslandNode);
+            this.animatedNodes.iceIsland = iceIslandNode; // Save for animation
+
             // 2. Water
-            {
-                geom: Geometry.generateWaterPlane(
-                    25, 25, 1, 1, C.WATER_BLUE
-                ),
-                trans: createTransform(0, -2.6, 0),
-                animationType: 'static'
-            },
-        ];
+            const waterNode = new ModelNode(gl, Geometry.generateWaterPlane(25, 25, 1, 1, C.WATER_BLUE));
+            waterNode.setBaseTransform(createTransform(0, -2.6, 0));
+            this.rootNode.addChild(waterNode);
+        }
 
-        partDefinitions.forEach(def => {
-            const part = new PrinplupPart(gl, def.geom, def.texture || null, def.animationType);
-            part.setTransform(def.trans);
-            this.parts.push(part);
-        });
+        // NEW: Central animation update
+        updateAnimation() {
+            this.animationTime += 0.02;
+
+            // 1. Calculate float animation
+            const amplitude = 0.1;
+            const floatY = Math.sin(this.animationTime) * amplitude;
+
+            // 2. Apply animation to the ice island
+            // Note: We combine with the base matrix
+            const T_float = LIBS.get_I4();
+            LIBS.translateY(T_float, floatY);
+
+            const iceNode = this.animatedNodes.iceIsland;
+            const finalIceMatrix = LIBS.multiply(iceNode.baseMatrix, T_float);
+            iceNode.setLocalTransform(finalIceMatrix);
+        }
+
+        // MODIFIED: Return the final computed world matrix of the island
+        getIceIslandWorldMatrix() {
+            // Ensure the matrix is up-to-date before returning it
+            this.rootNode.updateWorldMatrix(this.modelMatrix);
+            return this.animatedNodes.iceIsland.worldMatrix;
+        }
+
+        draw(shader) {
+            // Update all world matrices
+            this.rootNode.updateWorldMatrix(this.modelMatrix);
+            // Start recursive draw
+            this.rootNode.draw(shader);
+        }
     }
 
-    // Method untuk Renderer mengambil matriks animasi pulau es
-    getIceIslandAnimMatrix() {
-        return this.iceIslandAnimMatrix;
-    }
 
-    draw(shader) {
-        // --- Logika Animasi Environment ada di sini ---
-        this.animationTime += 0.02; // Update waktu internal environment
-        
-        // 1. Hitung nilai animasi
-        const amplitude = 0.1; // Seberapa tinggi/rendah gerakannya
-        const floatY = Math.sin(this.animationTime) * amplitude; // Nilai naik/turun
+// --- RENDERER CLASS (Modified) ---
+    class Renderer {
+        constructor(canvasId) {
+            this.canvas = document.getElementById(canvasId);
+            this.canvas.width = window.innerWidth;
+            this.canvas.height = window.innerHeight;
 
-        // 1. Hitung matriks animasi HANYA untuk pulau es
-        const iceAnimMatrix = LIBS.get_I4();
-        LIBS.translateY(iceAnimMatrix, floatY);
+            this.gl = this.canvas.getContext("webgl", { antialias: true });
+            if (!this.gl) throw new Error("WebGL not supported");
 
-        // 2. Simpan matriks ini agar Renderer bisa mengambilnya
-        this.iceIslandAnimMatrix = iceAnimMatrix; 
-        
-        // 3. Buat objek animValues (hanya nilai mentah)
-        const animValues = {
-            floatingIce: floatY 
-        };
-        // --- SELESAI UBAH ---
+            this.shader = this.createShaderProgram();
+            this.Prinplup = new Prinplup(this.gl, this);
+            this.environment = new Environment(this.gl, this);
 
-        // 'this.modelMatrix' tetap statis (Identity)
-        this.parts.forEach(part => {
-            // Teruskan nilai animasi mentah. PrinplupPart.draw akan membuat
-            // matriks animasinya sendiri berdasarkan nilai ini.
-            part.draw(shader, this.modelMatrix, animValues); 
-        });
-    }
-}
+            this.viewMatrix = LIBS.get_I4();
+            LIBS.translateZ(this.viewMatrix, -20);
+            this.projMatrix = LIBS.get_projection(40, this.canvas.width / this.canvas.height, 1, 100);
+            this.animationTime = 0;
 
-// --- RENDERER CLASS ---
-// Manages the overall WebGL scene, shaders, and render loop.
-class Renderer {
-    constructor(canvasId) {
-        this.canvas = document.getElementById(canvasId);
-        this.canvas.width = window.innerWidth;
-        this.canvas.height = window.innerHeight;
+            this.initInputHandlers();
+            this.startRenderLoop();
+        }
 
-        this.gl = this.canvas.getContext("webgl", { antialias: true });
-        if (!this.gl) throw new Error("WebGL not supported");
-
-        this.shader = this.createShaderProgram();
-        this.Prinplup = new Prinplup(this.gl, this);
-        this.environment = new Environment(this.gl, this);
-
-        this.viewMatrix = LIBS.get_I4();
-        LIBS.translateZ(this.viewMatrix, -20);
-        // LIBS.rotateY(this.viewMatrix, Math.PI / 2);
-        this.projMatrix = LIBS.get_projection(40, this.canvas.width / this.canvas.height, 1, 100);
-        this.animationTime = 0;
-
-        this.initInputHandlers();
-        this.startRenderLoop();
-    }
-
-    createShaderProgram() {
-        const gl = this.gl;
-        const vsSource = `
+        createShaderProgram() {
+            const gl = this.gl;
+            const vsSource = `
             attribute vec3 position;
             attribute vec3 color;
             attribute vec2 texcoord;
@@ -1222,7 +1260,7 @@ class Renderer {
                 vNormal = mat3(Mmatrix) * normal;
                 v_worldPosition = (Mmatrix * vec4(position, 1.)).xyz;
             }`;
-        const fsSource = `
+            const fsSource = `
             precision mediump float;
             varying vec3 vColor;
             varying vec2 vTexcoord;
@@ -1248,161 +1286,173 @@ class Renderer {
                 gl_FragColor = vec4(baseColor.rgb * (0.9 + diffuse * 0.2), baseColor.a);
             }`;
 
-        const vs = this.compileShader(vsSource, gl.VERTEX_SHADER);
-        const fs = this.compileShader(fsSource, gl.FRAGMENT_SHADER);
+            const vs = this.compileShader(vsSource, gl.VERTEX_SHADER);
+            const fs = this.compileShader(fsSource, gl.FRAGMENT_SHADER);
 
-        const program = gl.createProgram();
-        gl.attachShader(program, vs);
-        gl.attachShader(program, fs);
-        gl.linkProgram(program);
+            const program = gl.createProgram();
+            gl.attachShader(program, vs);
+            gl.attachShader(program, fs);
+            gl.linkProgram(program);
 
-        gl.useProgram(program);
+            gl.useProgram(program);
 
-        const locations = {
-            position: gl.getAttribLocation(program, "position"),
-            color: gl.getAttribLocation(program, "color"),
-            texcoord: gl.getAttribLocation(program, "texcoord"),
-            normal: gl.getAttribLocation(program, "normal"),
-            Pmatrix: gl.getUniformLocation(program, "Pmatrix"),
-            Vmatrix: gl.getUniformLocation(program, "Vmatrix"),
-            Mmatrix: gl.getUniformLocation(program, "Mmatrix"),
-            sampler: gl.getUniformLocation(program, "sampler"),
-            u_useTexture: gl.getUniformLocation(program, "u_useTexture"),
-            u_lightPosition: gl.getUniformLocation(program, "u_lightPosition")
-        };
+            const locations = {
+                position: gl.getAttribLocation(program, "position"),
+                color: gl.getAttribLocation(program, "color"),
+                texcoord: gl.getAttribLocation(program, "texcoord"),
+                normal: gl.getAttribLocation(program, "normal"),
+                Pmatrix: gl.getUniformLocation(program, "Pmatrix"),
+                Vmatrix: gl.getUniformLocation(program, "Vmatrix"),
+                Mmatrix: gl.getUniformLocation(program, "Mmatrix"),
+                sampler: gl.getUniformLocation(program, "sampler"),
+                u_useTexture: gl.getUniformLocation(program, "u_useTexture"),
+                u_lightPosition: gl.getUniformLocation(program, "u_lightPosition")
+            };
 
-        gl.enableVertexAttribArray(locations.position);
-        gl.enableVertexAttribArray(locations.color);
-        gl.enableVertexAttribArray(locations.texcoord);
-        gl.enableVertexAttribArray(locations.normal);
+            gl.enableVertexAttribArray(locations.position);
+            gl.enableVertexAttribArray(locations.color);
+            gl.enableVertexAttribArray(locations.texcoord);
+            gl.enableVertexAttribArray(locations.normal);
 
-        return { program, locations };
-    }
-
-    compileShader(source, type) {
-        const gl = this.gl;
-        const shader = gl.createShader(type);
-        gl.shaderSource(shader, source);
-        gl.compileShader(shader);
-        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-            throw new Error("Shader compile error: " + gl.getShaderInfoLog(shader));
+            return { program, locations };
         }
-        return shader;
-    }
 
-    loadTexture(url) {
-        const gl = this.gl;
-        const texture = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, texture);
+        compileShader(source, type) {
+            const gl = this.gl;
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                throw new Error("Shader compile error: " + gl.getShaderInfoLog(shader));
+            }
+            return shader;
+        }
 
-        // Placeholder pixel
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 255, 255]));
-
-        const image = new Image();
-        image.onload = function () {
+        loadTexture(url) {
+            const gl = this.gl;
+            const texture = gl.createTexture();
             gl.bindTexture(gl.TEXTURE_2D, texture);
-            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
-            gl.generateMipmap(gl.TEXTURE_2D);
-        };
-        image.src = url;
 
-        return texture;
-    }
+            // Placeholder pixel
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 255, 255]));
 
-    initInputHandlers() {
-        let drag = false;
-        let x_prev, y_prev;
-        let dX = 0, dY = 0;
-        let THETA = 0, PHI = 0;
-        const FRICTION = 0.15;
+            const image = new Image();
+            image.onload = function () {
+                gl.bindTexture(gl.TEXTURE_2D, texture);
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+                gl.generateMipmap(gl.TEXTURE_2D);
+            };
+            image.src = url;
 
-        this.canvas.onmousedown = (e) => { drag = true; x_prev = e.pageX; y_prev = e.pageY; };
-        this.canvas.onmouseup = () => { drag = false; };
-        this.canvas.onmouseout = () => { drag = false; };
-        this.canvas.onmousemove = (e) => {
-            if (!drag) return;
-            dX = (e.pageX - x_prev) * 2 * Math.PI / this.canvas.width;
-            dY = (e.pageY - y_prev) * 2 * Math.PI / this.canvas.height;
-            THETA += dX;
-            PHI += dY;
-            x_prev = e.pageX;
-            y_prev = e.pageY;
-        };
+            return texture;
+        }
 
-        // This function is called every frame to update the Prinplup's rotation
-        this.updateRotation = () => {
-            if (!drag) {
-                dX *= (1 - FRICTION);
-                dY *= (1 - FRICTION);
+        initInputHandlers() {
+            let drag = false;
+            let x_prev, y_prev;
+            let dX = 0, dY = 0;
+            let THETA = 0, PHI = 0;
+            const FRICTION = 0.15;
+
+            this.canvas.onmousedown = (e) => { drag = true; x_prev = e.pageX; y_prev = e.pageY; };
+            this.canvas.onmouseup = () => { drag = false; };
+            this.canvas.onmouseout = () => { drag = false; };
+            this.canvas.onmousemove = (e) => {
+                if (!drag) return;
+                dX = (e.pageX - x_prev) * 2 * Math.PI / this.canvas.width;
+                dY = (e.pageY - y_prev) * 2 * Math.PI / this.canvas.height;
                 THETA += dX;
                 PHI += dY;
-            }
-            const rotationMatrix = LIBS.get_I4();
-            LIBS.rotateY(rotationMatrix, THETA);
-            LIBS.rotateX(rotationMatrix, PHI);
-
-            
-            // LIBS.translateY(rotationMatrix, breathOffset);
-
-            this.Prinplup.modelMatrix = rotationMatrix;
-        };
-    }
-
-    startRenderLoop() {
-        const gl = this.gl;
-        gl.enable(gl.DEPTH_TEST);
-        gl.depthFunc(gl.LEQUAL);
-        gl.clearColor(0.0, 0.0, 0.0, 0.0);
-        gl.clearDepth(1.0);
-
-        const render = (now) => {
-            this.updateRotation();
-            this.environment.draw(this.shader);
-
-            // --- HITUNG LOGIKA PERNAPASAN DI SINI ---
-            const timeInSeconds = now * 0.001;
-            const bodyBreathSpeed = 1.5; 
-            const bodyBreathAmount = 0.04;
-            const bodyBreathOffset  = Math.sin(timeInSeconds * bodyBreathSpeed * Math.PI) * bodyBreathAmount;
-
-            const eyeBreathSpeed = 1.5;
-            const eyeBreathAmount = 0.02;
-            const eyeBreathScale = 1.0 + Math.sin(timeInSeconds * eyeBreathSpeed * Math.PI) * eyeBreathAmount;
-
-            const diskBreathSpeed = 1.0; // Lebih cepat
-            const diskBreathAmount = 0.01; // Skala antara 0.97 dan 1.03
-            const diskBreathScale = 1.0 + Math.cos(timeInSeconds * diskBreathSpeed * Math.PI) * diskBreathAmount; // Pakai cos() agar beda fase
-            
-            const animationValues = {
-                body: bodyBreathOffset,
-                eye: eyeBreathScale,
-                disk: diskBreathScale
+                x_prev = e.pageX;
+                y_prev = e.pageY;
             };
-            // --- AKHIR BLOK PERNAPASAN ---
 
-            gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            this.updateRotation = () => {
+                if (!drag) {
+                    dX *= (1 - FRICTION);
+                    dY *= (1 - FRICTION);
+                    THETA += dX;
+                    PHI += dY;
+                }
+                const rotationMatrix = LIBS.get_I4();
+                LIBS.rotateY(rotationMatrix, THETA);
+                LIBS.rotateX(rotationMatrix, PHI);
 
-            gl.uniformMatrix4fv(this.shader.locations.Pmatrix, false, this.projMatrix);
-            gl.uniformMatrix4fv(this.shader.locations.Vmatrix, false, this.viewMatrix);
+                // The rotation is applied to the Prinplup's root node
+                this.Prinplup.modelMatrix = rotationMatrix;
+            };
+        }
 
-            // Set the light position
-            gl.uniform3fv(this.shader.locations.u_lightPosition, [5, 15, 10]);
+        startRenderLoop() {
+            const gl = this.gl;
+            gl.enable(gl.DEPTH_TEST);
+            gl.depthFunc(gl.LEQUAL);
+            gl.clearColor(0.0, 0.0, 0.0, 0.0);
+            gl.clearDepth(1.0);
 
-            const iceParentMatrix = this.environment.getIceIslandAnimMatrix();
+            const render = (now) => {
+                this.updateRotation();
 
-            this.Prinplup.draw(this.shader, animationValues, iceParentMatrix);
-            this.environment.draw(this.shader);
+                // --- CALCULATE ANIMATION VALUES ---
+                const timeInSeconds = now * 0.001;
+                const bodyBreathSpeed = 1.5;
+                const bodyBreathAmount = 0.04;
+                const bodyBreathOffset  = Math.sin(timeInSeconds * bodyBreathSpeed * Math.PI) * bodyBreathAmount;
 
-            requestAnimationFrame(render);
-        };
-        render();
+                const eyeBreathSpeed = 1.5;
+                const eyeBreathAmount = 0.02;
+                const eyeBreathScale = 1.0 + Math.sin(timeInSeconds * eyeBreathSpeed * Math.PI) * eyeBreathAmount;
+
+                const diskBreathSpeed = 1.0;
+                const diskBreathAmount = 0.01;
+                const diskBreathScale = 1.0 + Math.cos(timeInSeconds * diskBreathSpeed * Math.PI) * diskBreathAmount;
+
+                // NEW: Add flap calculation
+                const flapSpeed = 2.0;
+                const flapAmount = 0.2; // Radians
+                const flapAngle = Math.sin(timeInSeconds * flapSpeed * Math.PI) * flapAmount;
+
+                const animationValues = {
+                    body: bodyBreathOffset,
+                    eye: eyeBreathScale,
+                    disk: diskBreathScale, // Note: 'disk' animation isn't used by any part, but is calculated
+                    flapAngle: flapAngle, // NEW
+                };
+                // --- END ANIMATION VALUES ---
+
+                // --- NEW UPDATE LOGIC ---
+                // 1. Update all animations
+                this.environment.updateAnimation(); // Updates ice island float
+                this.Prinplup.updateAnimation(animationValues); // Updates body/eye anims
+
+                gl.viewport(0, 0, this.canvas.width, this.canvas.height);
+                gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+                gl.uniformMatrix4fv(this.shader.locations.Pmatrix, false, this.projMatrix);
+                gl.uniformMatrix4fv(this.shader.locations.Vmatrix, false, this.viewMatrix);
+
+                // Set the light position
+                gl.uniform3fv(this.shader.locations.u_lightPosition, [5, 15, 10]);
+
+                // 2. Get the final animated matrix of the ice island
+                const iceParentMatrix = this.environment.getIceIslandWorldMatrix();
+
+                // 3. Draw the models
+                // Pass the ice matrix as the parent for Prinplup
+                this.Prinplup.draw(this.shader, iceParentMatrix);
+                // The environment just draws relative to the world
+                this.environment.draw(this.shader);
+
+                requestAnimationFrame(render);
+            };
+            render();
+        }
     }
-}
 
 // --- START THE APPLICATION ---
-window.addEventListener('load', () => {
-    new Renderer('prinplup-canvas');
-});
+    window.addEventListener('load', () => {
+        // Make sure your canvas ID matches
+        new Renderer('prinplup-canvas');
+    });
 
 })();
