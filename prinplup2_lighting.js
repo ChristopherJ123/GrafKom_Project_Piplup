@@ -686,6 +686,27 @@
 
             return { vertices, faces };
         },
+
+        generateQuad: function(width, height, color) {
+            const vertices = [];
+            const faces = [];
+            const halfWidth = width / 2;
+            const halfHeight = height / 2;
+
+            // Define the 4 vertices of the quad in the XY plane
+            // [x, y, z, r, g, b, u, v, nx, ny, nz]
+            // Normal points forward (+Z)
+            vertices.push(-halfWidth, -halfHeight, 0, color[0], color[1], color[2], 0, 0, 0, 0, 1); // Bottom-left
+            vertices.push( halfWidth, -halfHeight, 0, color[0], color[1], color[2], 1, 0, 0, 0, 1); // Bottom-right
+            vertices.push( halfWidth,  halfHeight, 0, color[0], color[1], color[2], 1, 1, 0, 0, 1); // Top-right
+            vertices.push(-halfWidth,  halfHeight, 0, color[0], color[1], color[2], 0, 1, 0, 0, 1); // Top-left
+
+            // Define the 2 triangles that make the quad
+            faces.push(0, 1, 2); // Triangle 1
+            faces.push(0, 2, 3); // Triangle 2
+
+            return { vertices, faces };
+        },
     };
 
 
@@ -758,6 +779,7 @@
             if (this.buffers) {
                 const gl = this.gl;
                 gl.uniformMatrix4fv(shader.locations.Mmatrix, false, this.worldMatrix);
+                gl.uniform1f(shader.locations.u_alpha, this.alpha);
 
                 gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.vertex);
 
@@ -766,7 +788,9 @@
                 gl.vertexAttribPointer(shader.locations.position, 3, gl.FLOAT, false, stride, 0);
                 gl.vertexAttribPointer(shader.locations.color, 3, gl.FLOAT, false, stride, 3 * 4);
                 gl.vertexAttribPointer(shader.locations.texcoord, 2, gl.FLOAT, false, stride, 6 * 4);
-                gl.vertexAttribPointer(shader.locations.normal, 3, gl.FLOAT, false, stride, 8 * 4);
+                if (shader.locations.normal !== undefined && shader.locations.normal !== -1) {
+                    gl.vertexAttribPointer(shader.locations.normal, 3, gl.FLOAT, false, stride, 8 * 4);
+                }
 
 
                 if (this.texture) {
@@ -803,15 +827,20 @@
             // Store references to nodes that need animation
             this.animatedNodes = {
                 breathingNode: null,
+                leftLegGroup: null, 
+                rightLegGroup: null,
                 eyeNodes: [],
-                leftHand: null,   // NEW
-                rightHand: null,   // NEW
+                leftHand: null,
+                rightHand: null,
+                breathEffects: []
             };
 
             // NEW: Add a place to store base poses
             this.baseTransforms = {
                 leftHand: LIBS.get_I4(),
-                rightHand: LIBS.get_I4()
+                rightHand: LIBS.get_I4(),
+                leftLegGroup: LIBS.get_I4(),
+                rightLegGroup: LIBS.get_I4()
             };
 
             this.initParts();
@@ -998,6 +1027,19 @@
             })());
             breathingNode.addChild(beakCone);
 
+            const breathEffectNode = new ModelNode(gl, Geometry.generateSphere(0.02, 0.02, 0.03, 10, 10, C.WHITE));
+            // This transform is RELATIVE TO THE BEAK NODE
+            breathEffectNode.setBaseTransform(createTransform(0, 0.04, 0.06));
+            breathEffectNode.alpha = 0.0; // Start invisible
+            beak.addChild(breathEffectNode); // Attach to the main beak part
+            this.animatedNodes.breathEffects.push(breathEffectNode);
+            const breathEffectNode2 = new ModelNode(gl, Geometry.generateSphere(0.03, 0.03, 0.04, 10, 10, C.WHITE));
+            // This transform is RELATIVE TO THE BEAK NODE
+            breathEffectNode2.setBaseTransform(createTransform(0, 0.08, 0.1));
+            breathEffectNode2.alpha = 0.0; // Start invisible
+            beak.addChild(breathEffectNode2); // Attach to the main beak part
+            this.animatedNodes.breathEffects.push(breathEffectNode2);
+
             // Hands
             const leftHand = new ModelNode(gl, Geometry.generateSphere(0.2, 1.5, 0.5, 15, 15, C.TAIL), handTexture);
             // NEW: Store the matrix and the node
@@ -1025,30 +1067,56 @@
             this.animatedNodes.rightHand = rightHand;
             breathingNode.addChild(rightHand);
 
-            // Legs (Creating parent nodes for feet)
+            // === GRUP KAKI KIRI ===
+            const leftLegGroup = new ModelNode(gl); 
+            const leftLegGroupBaseMatrix = createTransform(-0.65, -1.2, 0.1); // Posisi global grup kaki
+            leftLegGroup.setBaseTransform(leftLegGroupBaseMatrix);
+            this.rootNode.addChild(leftLegGroup); // <<< TAMBAHKAN KE ROOTNODE (bukan breathingNode)
+            this.animatedNodes.leftLegGroup = leftLegGroup; // Simpan referensi
+            this.baseTransforms.leftLegGroup = leftLegGroupBaseMatrix; // Simpan base matrix
+
+            // Tungkai Kiri (Anak dari leftLegGroup)
             const leftLeg = new ModelNode(gl, Geometry.generateSphere(0.3, 0.8, 0.4, 10, 10, C.BODY));
-            leftLeg.setBaseTransform(createTransform(-0.65, -1.2, 0.1));
-            breathingNode.addChild(leftLeg); // Add leg to body
+            leftLeg.setBaseTransform(createTransform(0, 2.6, 0)); // Posisi 0,0,0 relatif ke grup
+            leftLegGroup.addChild(leftLeg); 
 
+            // Telapak Kaki Kiri 1 (Anak dari leftLegGroup)
+            // Posisi LOKAL relatif ke grup kaki (-0.65, -1.2, 0.1)
+            // Global: (-0.65, -1.9, 0.24) -> Lokal: (0, -0.7, 0.14)
             const leftFoot1 = new ModelNode(gl, Geometry.generateSphere(0.3, 0.12, 0.35, 10, 10, C.FEET));
-            leftFoot1.setBaseTransform(createTransform(-0.65, -1.9, 0.24));
-            breathingNode.addChild(leftFoot1); // Add foot to body
+            leftFoot1.setBaseTransform(createTransform(0, 1.9, 0.1)); 
+            leftLegGroup.addChild(leftFoot1);
 
+            // Telapak Kaki Kiri 2 (Anak dari leftLegGroup)
+            // Global: (-0.65, -2.0, 0.4) -> Lokal: (0, -0.8, 0.3)
             const leftFoot2 = new ModelNode(gl, Geometry.generateSphere(0.3, 0.1, 0.5, 10, 10, C.FEET));
-            leftFoot2.setBaseTransform(createTransform(-0.65, -2, 0.4));
-            breathingNode.addChild(leftFoot2); // Add foot to body
+            leftFoot2.setBaseTransform(createTransform(0, 1.8, 0.25));
+            leftLegGroup.addChild(leftFoot2);
 
+            // === GRUP KAKI KANAN ===
+            const rightLegGroup = new ModelNode(gl);
+            const rightLegGroupBaseMatrix = createTransform(0.65, -1.2, 0.1); // Posisi global grup kaki
+            rightLegGroup.setBaseTransform(rightLegGroupBaseMatrix);
+            this.rootNode.addChild(rightLegGroup); // <<< TAMBAHKAN KE ROOTNODE
+            this.animatedNodes.rightLegGroup = rightLegGroup;
+            this.baseTransforms.rightLegGroup = rightLegGroupBaseMatrix;
+
+            // Tungkai Kanan (Anak dari rightLegGroup)
             const rightLeg = new ModelNode(gl, Geometry.generateSphere(0.3, 0.8, 0.4, 10, 10, C.BODY));
-            rightLeg.setBaseTransform(createTransform(0.65, -1.2, 0.1));
-            breathingNode.addChild(rightLeg);
+            rightLeg.setBaseTransform(createTransform(0, 2.6, 0)); 
+            rightLegGroup.addChild(rightLeg);
 
+            // Telapak Kaki Kanan 1 (Anak dari rightLegGroup)
+            // Global: (0.65, -1.9, 0.24) -> Lokal: (0, -0.7, 0.14)
             const rightFoot1 = new ModelNode(gl, Geometry.generateSphere(0.3, 0.12, 0.35, 10, 10, C.FEET));
-            rightFoot1.setBaseTransform(createTransform(0.65, -1.9, 0.24));
-            breathingNode.addChild(rightFoot1);
+            rightFoot1.setBaseTransform(createTransform(0, 1.9, 0.1));
+            rightLegGroup.addChild(rightFoot1);
 
+            // Telapak Kaki Kanan 2 (Anak dari rightLegGroup)
+            // Global: (0.65, -2.0, 0.4) -> Lokal: (0, -0.8, 0.3)
             const rightFoot2 = new ModelNode(gl, Geometry.generateSphere(0.3, 0.1, 0.6, 10, 10, C.FEET));
-            rightFoot2.setBaseTransform(createTransform(0.65, -2, 0.4));
-            breathingNode.addChild(rightFoot2);
+            rightFoot2.setBaseTransform(createTransform(0, 1.8, 0.25));
+            rightLegGroup.addChild(rightFoot2);
 
             // Tail
             const tail = new ModelNode(gl, Geometry.generateTaperedShapeFromSpline(
@@ -1063,19 +1131,31 @@
         updateAnimation(animValues) {
             // 1. Apply 'bodyBreathe' Y-translation to the main breathing node
             const T_breath = LIBS.get_I4();
-            LIBS.translateY(T_breath, animValues.body + 2.5);
+            LIBS.translateY(T_breath, animValues.bodyTranslate + 2.5);
+            LIBS.scaleY(T_breath, animValues.bodyScale);
+            LIBS.scale(T_breath, animValues.bodyScale - 0.01);
+            // LIBS.scale(T_breath, 1);
             this.animatedNodes.breathingNode.setLocalTransform(T_breath);
 
-            // Emang matanya goyang2 ta?
-            // // 2. Apply 'eyeBreathe' Y-scale to all eye parts
-            // const S_eye = LIBS.get_I4();
-            // LIBS.scaleY(S_eye, animValues.eye || 1.0);
-            //
-            // this.animatedNodes.eyeNodes.forEach(eyeNode => {
-            //     // Combine the base pose with the animation: M_local = M_base * M_anim
-            //     const finalEyeMatrix = LIBS.multiply(eyeNode.baseMatrix, S_eye);
-            //     eyeNode.setLocalTransform(finalEyeMatrix);
-            // });
+           // 2. Apply ONLY 'bodyTranslate' to the leg groups
+            const T_legBreath = LIBS.get_I4();
+            LIBS.translateY(T_legBreath, animValues.bodyTranslate || 0.0); // Hanya translasi
+
+            // Terapkan ke Kaki Kiri
+            const leftLegNode = this.animatedNodes.leftLegGroup;
+            if (leftLegNode) {
+                // M_final = M_base * M_animasi_translasi
+                const finalLeftLegMatrix = LIBS.multiply(this.baseTransforms.leftLegGroup, T_legBreath);
+                leftLegNode.setLocalTransform(finalLeftLegMatrix);
+            }
+
+            // Terapkan ke Kaki Kanan
+            const rightLegNode = this.animatedNodes.rightLegGroup;
+            if (rightLegNode) {
+                // M_final = M_base * M_animasi_translasi
+                const finalRightLegMatrix = LIBS.multiply(this.baseTransforms.rightLegGroup, T_legBreath);
+                rightLegNode.setLocalTransform(finalRightLegMatrix);
+            }
 
             // (Future animations like 'diskBreathe' would be added here)
 
@@ -1123,6 +1203,26 @@
             // Combine with base: M_final = M_base * M_anim
             const rightFinal = LIBS.multiply(this.baseTransforms.rightHand, rightAnim);
             this.animatedNodes.rightHand.setLocalTransform(rightFinal);
+
+            const breathAlpha = animValues.breathAlpha || 0.0;
+            const breathScale = animValues.breathScale || 1.0;
+
+            // Buat matriks skala sekali saja
+            const S_breath = LIBS.get_I4();
+            LIBS.scale(S_breath, breathScale);
+
+            // Loop melalui setiap node efek napas di array
+            this.animatedNodes.breathEffects.forEach(breathNode => {
+                if (breathNode) {
+                    // Update Alpha
+                    breathNode.alpha = breathAlpha;
+
+                    // Gabungkan base transform node DENGAN matriks skala
+                    // M_local = M_base * M_animasi_skala
+                    const finalBreathMatrix = LIBS.multiply(breathNode.baseMatrix, S_breath);
+                    breathNode.setLocalTransform(finalBreathMatrix);
+                }
+            });
         }
 
         draw(shader, parentMatrix) {
@@ -1234,7 +1334,7 @@
 
             this.viewMatrix = LIBS.get_I4();
             LIBS.translateZ(this.viewMatrix, -10);
-            this.projMatrix = LIBS.get_projection(40, this.canvas.width / this.canvas.height, 1, 100);
+            this.projMatrix = LIBS.get_projection(30, this.canvas.width / this.canvas.height, 1, 100);
             this.animationTime = 0;
 
             this.initInputHandlers();
@@ -1269,6 +1369,7 @@
             uniform sampler2D sampler;
             uniform int u_useTexture;
             uniform vec3 u_lightPosition;
+            uniform float u_alpha;
 
             void main(void) {
                 vec3 normal = normalize(vNormal);
@@ -1282,6 +1383,8 @@
                 } else {
                     baseColor = vec4(vColor, 1.);
                 }
+                // Apply lighting
+                vec4 litColor = vec4(baseColor.rgb * (0.9 + diffuse * 0.2), baseColor.a);
                 // Apply ambient light (0.9) + diffuse light (0.2)
                 gl_FragColor = vec4(baseColor.rgb * (0.9 + diffuse * 0.2), baseColor.a);
             }`;
@@ -1293,7 +1396,6 @@
             gl.attachShader(program, vs);
             gl.attachShader(program, fs);
             gl.linkProgram(program);
-
             gl.useProgram(program);
 
             const locations = {
@@ -1306,7 +1408,8 @@
                 Mmatrix: gl.getUniformLocation(program, "Mmatrix"),
                 sampler: gl.getUniformLocation(program, "sampler"),
                 u_useTexture: gl.getUniformLocation(program, "u_useTexture"),
-                u_lightPosition: gl.getUniformLocation(program, "u_lightPosition")
+                u_lightPosition: gl.getUniformLocation(program, "u_lightPosition"),
+                u_alpha: gl.getUniformLocation(program, "u_alpha")
             };
 
             gl.enableVertexAttribArray(locations.position);
@@ -1389,34 +1492,60 @@
             gl.depthFunc(gl.LEQUAL);
             gl.clearColor(0.0, 0.0, 0.0, 0.0);
             gl.clearDepth(1.0);
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
             const render = (now) => {
                 this.updateRotation();
 
                 // --- CALCULATE ANIMATION VALUES ---
-                const timeInSeconds = now * 0.001;
+                const timeInSeconds = now * 0.0008;
                 const bodyBreathSpeed = 1.5;
-                const bodyBreathAmount = 0.04;
-                const bodyBreathOffset  = Math.sin(timeInSeconds * bodyBreathSpeed * Math.PI) * bodyBreathAmount;
+                const bodyBreathAmount = 0.02;
+                const bodyBreathOffset  = Math.cos(timeInSeconds * bodyBreathSpeed * Math.PI) * bodyBreathAmount;
 
-                const eyeBreathSpeed = 1.5;
-                const eyeBreathAmount = 0.02;
-                const eyeBreathScale = 1.0 + Math.sin(timeInSeconds * eyeBreathSpeed * Math.PI) * eyeBreathAmount;
+                // Body breathe - Scale
+                const bodyBreathAmountScale = 0.02;
+                const bodyBreathScale = 1.0 + Math.cos(timeInSeconds * bodyBreathSpeed * Math.PI) * bodyBreathAmountScale;
+
+                const breathCycleDuration = 2 / bodyBreathSpeed; // Time for one inhale/exhale
+                const timeInCycle = (timeInSeconds % breathCycleDuration);
+                const breathPhase = (timeInCycle / breathCycleDuration); // 0 to 1
+                let breathAlpha = 0.0;
+                let currentBreathScale = 0.1; // Start small
+                const breathStartPhase = 0.0; // Mulai hembusan saat tubuh mulai mengecil
+                const breathEndPhase = 0.5;   // Akhiri hembusan saat tubuh paling kecil
+                const phaseDuration = breathEndPhase - breathStartPhase; // Durasi = 0.5
+
+                if (breathPhase >= breathStartPhase && breathPhase <= breathEndPhase) {
+                    const phaseProgress = (breathPhase - breathStartPhase) / phaseDuration; // 0 sampai 1
+                    // Gunakan sin untuk fade in/out yang mulus
+                    breathAlpha = Math.sin(phaseProgress * Math.PI) * 0.4; // Puncak alpha 0.4
+                    // Skala membesar selama hembusan
+                    currentBreathScale = 0.9 + phaseProgress * 1.5; // Skala dari 0.5 sampai 2.0
+                }
+
+                // const eyeBreathSpeed = 1.5;
+                // const eyeBreathAmount = 0.02;
+                // const eyeBreathScale = 1.0 + Math.sin(timeInSeconds * eyeBreathSpeed * Math.PI) * eyeBreathAmount;
 
                 const diskBreathSpeed = 1.0;
                 const diskBreathAmount = 0.01;
                 const diskBreathScale = 1.0 + Math.cos(timeInSeconds * diskBreathSpeed * Math.PI) * diskBreathAmount;
 
                 // NEW: Add flap calculation
-                const flapSpeed = 2.0;
-                const flapAmount = 0.2; // Radians
+                const flapSpeed = 1;
+                const flapAmount = 0.1; // Radians
                 const flapAngle = Math.sin(timeInSeconds * flapSpeed * Math.PI) * flapAmount;
 
                 const animationValues = {
-                    body: bodyBreathOffset,
-                    eye: eyeBreathScale,
+                    bodyTranslate: bodyBreathOffset,
+                    bodyScale: bodyBreathScale,
+                    // eye: eyeBreathScale,
                     disk: diskBreathScale, // Note: 'disk' animation isn't used by any part, but is calculated
-                    flapAngle: flapAngle, // NEW
+                    flapAngle: flapAngle,
+                    breathAlpha: breathAlpha,
+                    breathScale: currentBreathScale
                 };
                 // --- END ANIMATION VALUES ---
 
