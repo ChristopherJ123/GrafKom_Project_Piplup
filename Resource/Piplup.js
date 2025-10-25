@@ -1,6 +1,6 @@
 import { Geometry } from "./Geometries.js";
-import { ModelNode } from "./ModelNode.js";
 import { LIBS } from "./Libs.js";
+import { ModelNode } from "./ModelNode.js";
 
 export class Piplup {
     constructor(gl, renderer) {

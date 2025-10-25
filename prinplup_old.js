@@ -1,3 +1,4 @@
+import { LIBS } from "./Resource/Libs.js";
 // --- UTILITY FOR GEOMETRY ---
 // We place the geometry generation logic in its own object to keep things organized.
 const Geometry = {
@@ -697,5 +698,5 @@ class Renderer {
 
 // --- START THE APPLICATION ---
 window.addEventListener('load', () => {
-    new Renderer('myCanvas');
+    new Renderer('prinplup-canvas');
 });

@@ -1,4 +1,4 @@
-var LIBS = {
+var Libs = {
     degToRad: function (angle) {
         return (angle * Math.PI / 180);
     },
@@ -124,3 +124,5 @@ var LIBS = {
         m[12] = x, m[13] = y, m[14] = z;
     }
 };
+
+export var LIBS = Libs;

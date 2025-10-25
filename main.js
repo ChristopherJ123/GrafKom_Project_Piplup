@@ -1,9 +1,9 @@
-import { Piplup } from "./Piplup.js";
-import { Prinplup } from "./Prinplup.js";
-import { Empoleon } from "./Empoleon.js";
-import { Environment } from "./Environment.js";
-import { Geometry } from "./Geometries.js";
-import { LIBS } from "./Libs.js";
+import { Piplup } from "./Resource/Piplup.js";
+import { Prinplup } from "./Resource/Prinplup.js";
+import { Empoleon } from "./Resource/Empoleon.js";
+import { Environment } from "./Resource/Environment.js";
+import { Geometry } from "./Resource/Geometries.js";
+import { LIBS } from "./Resource/Libs.js";
 
 class Renderer {
     constructor(canvasId) {
