@@ -17,11 +17,13 @@ export class Empoleon {
         this.animatedNodes = {
             breathingNode: null, // <-- ADDED: Node to control overall Y position + animation
             leftHand: null,      // <-- ADDED: Node for left hand geometry
-            rightHand: null      // <-- ADDED: Node for right hand geometry
+            rightHand: null,      // <-- ADDED: Node for right hand geometry
+            tailNode: null
         };
         this.baseTransforms = {
             leftHand: LIBS.get_I4(), // <-- ADDED: Base pose for left hand
-            rightHand: LIBS.get_I4() // <-- ADDED: Base pose for right hand
+            rightHand: LIBS.get_I4(), // <-- ADDED: Base pose for right hand
+            tail: LIBS.get_I4()
         };
 
         this.initParts();
@@ -113,7 +115,10 @@ export class Empoleon {
                 texture: headTexture
             },
 
+            // TAIL
             {
+                name: 'tailNode',
+                parentName: 'breathingNode',
                 geom: Geometry.generateTaperedShapeFromSpline(
                     [
                         [0.0, -0.6, -0.8], [0.0, -0.6, -1.2], [0.0, -0.6, -2.0]
@@ -507,6 +512,10 @@ export class Empoleon {
                 this.animatedNodes.rightHand = node;
                 this.baseTransforms.rightHand = def.trans; // Store base pose
             }
+            else if (def.name === 'tailNode') { 
+                this.animatedNodes.tailNode = node;
+                this.baseTransforms.tail = def.trans;
+            }
             // Add other nodes to animatedNodes if needed
         });
 
@@ -522,7 +531,6 @@ export class Empoleon {
                 if (parentNode) {
                     parentNode.addChild(node);
                 } else {
-                    console.warn(`Parent node "${parentName}" not found for child "${def.name}". Attaching to breathingNode.`);
                     breathingNode.addChild(node); // Fallback parent
                 }
             }
@@ -557,7 +565,7 @@ export class Empoleon {
         // Apply the animation value PLUS the 2.5 static offset
         LIBS.translateY(T_breath, bodyY + 2.5);
 
-        // Set this new matrix as the local transform for the *entire* model
+        // Set this new matrix as the local transform for the entire model
         if (this.animatedNodes.breathingNode) {
             this.animatedNodes.breathingNode.setLocalTransform(T_breath);
         }
@@ -612,6 +620,47 @@ export class Empoleon {
             // Combine with base: M_final = M_base * M_anim
             const rightFinal = LIBS.multiply(this.baseTransforms.rightHand, rightAnim);
             this.animatedNodes.rightHand.setLocalTransform(rightFinal);
+        }
+
+        // --- ADDED: Tail Infinity Animation ---
+        const tailSwing = animValues.tailSwing || 0.0;
+
+        if (this.animatedNodes.tailNode && this.baseTransforms.tail) {
+            // Pivot point at the base of the tail (top of the tail geometry)
+            const pivotY = 0.3; // Pivot near attachment point
+            
+            // Create pivot matrices (move pivot to origin)
+            const T_up_tail = LIBS.get_I4();
+            LIBS.translateY(T_up_tail, -pivotY);
+            
+            const T_down_tail = LIBS.get_I4();
+            LIBS.translateY(T_down_tail, pivotY);
+            
+            // Calculate infinity pattern (figure-8)
+            // Left-right: sin(t) → creates horizontal motion
+            // Up-down: sin(2t) → double frequency creates vertical motion
+            const swingX = Math.sin(tailSwing) * 0.3;      // Left-right amplitude
+            const swingZ = Math.sin(tailSwing * 2) * 0.2;  // Up-down with 2x frequency
+            
+            // Create rotation matrices
+            // Rotate around X axis (up-down motion)
+            const R_x = LIBS.get_I4();
+            LIBS.rotateX(R_x, swingZ);
+            
+            // Rotate around Z axis (left-right motion)
+            const R_z = LIBS.get_I4();
+            LIBS.rotateZ(R_z, swingX);
+            
+            // Combine rotations: R_combined = R_z * R_x
+            let tailRotation = LIBS.multiply(R_z, R_x);
+            
+            // Apply pivot transformation: M_anim = T_up * R_combined * T_down
+            let tailAnim = LIBS.multiply(tailRotation, T_down_tail);
+            tailAnim = LIBS.multiply(T_up_tail, tailAnim);
+            
+            // Combine with base transform: M_final = M_base * M_anim
+            const tailFinal = LIBS.multiply(this.baseTransforms.tail, tailAnim);
+            this.animatedNodes.tailNode.setLocalTransform(tailFinal);
         }
         // --- END ADDED ---
     }

@@ -18,9 +18,35 @@
             background-size: cover;
             /* background-color: #77b5fe; */
         }
+        div {
+            position: fixed;
+            bottom: 4rem;
+            right: 4rem;
+        }
+        #wakeToggle {
+            padding: 0.2rem;
+            font-size: 3rem;
+            background: rgb(57, 145, 183);
+            border-radius: 100%;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.5s ease-in-out, transform 0.3s ease-in-out;
+        }
+        #wakeToggle:hover {
+            background-color: rgb(22, 85, 159);
+            transform: scale(1.05);
+            transition: background-color 0.5s ease-in-out, transform 0.3s ease-in-out;
+        }
     </style>
 </head>
 <body>
+    <div>
+        <button id="wakeToggle"></button>
+        <audio id="backgroundMusic" ref={audioRef} autoPlay loop src="./Resource/luigi-boccherini-minuetto.mp3"></audio>
+    </div>
     <canvas id="prinplup-canvas"></canvas>
 </body>
 </html>

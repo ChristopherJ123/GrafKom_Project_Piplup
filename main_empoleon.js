@@ -15,6 +15,7 @@ class Renderer {
 
         this.viewMatrix = LIBS.get_I4();
         LIBS.translateZ(this.viewMatrix, -9);
+        LIBS.translateY(this.viewMatrix, -2.8);
         // LIBS.rotateY(this.viewMatrix, Math.PI / 2);
         this.projMatrix = LIBS.get_projection(40, this.canvas.width / this.canvas.height, 1, 100);
 
@@ -157,8 +158,12 @@ class Renderer {
         gl.clearColor(0.0, 0.0, 0.0, 0.0);
         gl.clearDepth(1.0);
 
+        let time = 0; // NEW
+
         const render = () => {
             this.updateRotation();
+
+            time += 0.02; // NEW
 
             gl.viewport(0, 0, this.canvas.width, this.canvas.height);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -166,7 +171,15 @@ class Renderer {
             gl.uniformMatrix4fv(this.shader.locations.Pmatrix, false, this.projMatrix);
             gl.uniformMatrix4fv(this.shader.locations.Vmatrix, false, this.viewMatrix);
 
+            // Update animasi dengan nilai time
+            this.empoleon.updateAnimation({
+                body: Math.sin(time) * 0.1,
+                flapAngle: Math.sin(time * 2) * 0.2,
+                tailSwing: time // Kirim nilai time untuk animasi ekor
+            });
+
             this.empoleon.draw(this.shader, this.mouseRotationMatrix);
+
 
             requestAnimationFrame(render);
         };

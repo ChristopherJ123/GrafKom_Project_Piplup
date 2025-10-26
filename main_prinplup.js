@@ -97,9 +97,11 @@ class Renderer {
         this.environment = new Environment(this.gl, this);
 
         this.viewMatrix = LIBS.get_I4();
-        LIBS.translateZ(this.viewMatrix, -10);
+        LIBS.translateZ(this.viewMatrix, -14);
         this.projMatrix = LIBS.get_projection(30, this.canvas.width / this.canvas.height, 1, 100);
         this.animationTime = 0;
+
+        this.audioElement = document.getElementById('backgroundMusic');
 
         this.initInputHandlers();
         this.startRenderLoop();
@@ -248,6 +250,29 @@ class Renderer {
             // The rotation is applied to the Prinplup's root node
             this.Prinplup.modelMatrix = rotationMatrix;
         };
+
+        const wakeToggleButton = document.getElementById("wakeToggle");
+        if (wakeToggleButton && this.audioElement) {
+            wakeToggleButton.textContent = this.isAwake ? '🔇' : '🔊';
+
+            wakeToggleButton.addEventListener('click', () => {
+                this.isAwake = !this.isAwake;
+                console.log("isAwake:", this.isAwake);
+                if (!this.isAwake) {
+                    this.audioElement.play();
+                    this.audioElement.loop = true;
+                    this.audioElement.currentTime = 0.5;
+                    wakeToggleButton.textContent = '🔊';
+                } else {
+                    this.audioElement.pause();
+                    this.audioElement.loop = false;
+                    this.audioElement.currentTime = 0.5; // off kalau mau tidak ngulang
+                    wakeToggleButton.textContent = '🔇';
+                }
+            });
+        } else {
+            if (!wakeToggleButton) console.error("Button with ID 'wakeToggle' not found!");
+        }
     }
 
     startRenderLoop() {
@@ -331,8 +356,7 @@ class Renderer {
             const iceParentMatrix = this.environment.getIceIslandWorldMatrix();
 
             // 3. Draw the models
-            // Pass the ice matrix as the parent for Prinplup
-            this.Prinplup.draw(this.shader, iceParentMatrix);
+            this.Prinplup.draw(this.shader, iceParentMatrix, this.isAwake);
             // The environment just draws relative to the world
             this.environment.draw(this.shader);
 

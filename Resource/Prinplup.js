@@ -345,7 +345,18 @@ export class Prinplup {
             rightLegNode.setLocalTransform(finalRightLegMatrix);
         }
 
-        // (Future animations like 'diskBreathe' would be added here)
+        // TOGGLE dance: Kalkulasi Rotasi Sumbu Sembarang untuk Seluruh Badan
+        const bodySpinSpeed = 1.0; 
+        const bodySpinAxis = [0.2, 2.9, 0.0];
+        const timeInSeconds = performance.now() * 0.001;
+        const bodySpinAngle = timeInSeconds * bodySpinSpeed;
+
+        // Buat matriks rotasi baru
+        const R_bodySpin = LIBS.get_I4();
+        LIBS.rotateAroundAxis(R_bodySpin, bodySpinAxis, bodySpinAngle); 
+
+        // Simpan matriks rotasi ini untuk digunakan di fungsi draw
+        this.bodySpinMatrix = R_bodySpin;
 
         // 3. NEW: Apply 'flapAngle' Z-rotation to hands
         const flapAngle = animValues.flapAngle || 0.0;
@@ -413,15 +424,30 @@ export class Prinplup {
         });
     }
 
-    draw(shader, parentMatrix) {
-        // 'parentMatrix' is the animated matrix from the ice island
-        // 'this.modelMatrix' is the mouse-drag rotation
-        const finalParentMatrix = LIBS.multiply(parentMatrix, this.modelMatrix);
+    draw(shader, parentMatrix, isAwake) {
+        // Mulai dengan rotasi mouse
+        let combinedRotation = this.modelMatrix; 
 
-        // Update all world matrices starting from the root
-        this.rootNode.updateWorldMatrix(finalParentMatrix);
+        // Jika matriks animasi badan ada, kalikan SETELAH rotasi mouse
+        if (this.bodySpinMatrix) {
+            // Urutan: MouseRotation * BodySpinAnimation
+            combinedRotation = LIBS.multiply(this.bodySpinMatrix, combinedRotation);
+        }
 
+        if (isAwake) {
+            // Gabungkan matriks induk (lingkungan) dengan matriks rotasi gabungan
+            const finalParentMatrix = LIBS.multiply(parentMatrix, this.modelMatrix);
+            // Update all world matrices starting from the root
+            this.rootNode.updateWorldMatrix(finalParentMatrix);
+
+        } else {
+            // Gabungkan matriks induk (lingkungan) dengan matriks rotasi gabungan
+            const finalParentMatrix = LIBS.multiply(parentMatrix, combinedRotation);
+            // Update all world matrices starting from the root
+            this.rootNode.updateWorldMatrix(finalParentMatrix);
+        }
         // Start the recursive draw
-        this.rootNode.draw(shader);
+        this.rootNode.draw(shader, isAwake);
+
     }
 }

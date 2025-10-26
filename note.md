@@ -16,6 +16,7 @@ generateBeak(width, thickness, length, segments, color)
 prinplup_uv_map_texture.png --> buatan michelle masih belum pas
 prinplup_texture_no_eyes.png --> ori tapi diubah jadi 1024x2048
 prinplup_texture_no_eyes_.png --> ori 2048x2048
+bodyBreathAmount --> naik turun body
 
 ### empoleon
 flapAngle, 

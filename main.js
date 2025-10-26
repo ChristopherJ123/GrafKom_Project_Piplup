@@ -45,7 +45,7 @@ class Renderer {
 
         this.prinplupModelMatrix = LIBS.get_I4();
         LIBS.translateX(this.prinplupModelMatrix, -1.0);
-        LIBS.translateY(this.prinplupModelMatrix, -0.04);
+        LIBS.translateY(this.prinplupModelMatrix, -0.18);
         LIBS.scale(this.prinplupModelMatrix, 1.2);
 
         // Static matrix for Empoleon
@@ -378,14 +378,16 @@ class Renderer {
         gl.clearDepth(1.0);
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        let time = 0;
 
         const render = (now) => {
             this.updateEnvironmentRotation();
+             time += 0.02;
 
             // --- CALCULATE ANIMATION VALUES ---
             const timeInSeconds = now * 0.0008;
             const bodyBreathSpeed = 1.5;
-            const bodyBreathAmount = 0.02;
+            const bodyBreathAmount = 0;
             const bodyBreathOffset  = Math.cos(timeInSeconds * bodyBreathSpeed * Math.PI) * bodyBreathAmount;
 
             // Body breathe - Scale
@@ -482,6 +484,7 @@ class Renderer {
             gl.drawElements(gl.TRIANGLES, this.skyboxBuffers.faces_length, gl.UNSIGNED_SHORT, 0);
 
             gl.depthMask(true); // Re-enable depth writing
+            gl.bindTexture(gl.TEXTURE_CUBE_MAP, null); // Unbind the cubemap from the active unit (0)
 
             // === 2. DRAW MAIN SCENE ===
             gl.useProgram(this.shader.program); // Switch back to the main shader
@@ -506,8 +509,14 @@ class Renderer {
             this.piplup.draw(this.shader, piplupParentMatrix);
 
             const prinplupParentMatrix = LIBS.multiply(this.prinplupModelMatrix, iceParentMatrix);
-            this.Prinplup.draw(this.shader, prinplupParentMatrix);
+            this.Prinplup.draw(this.shader, prinplupParentMatrix, true); // false: dance. better implement with sound
 
+            // Update animasi dengan nilai time
+            this.empoleon.updateAnimation({
+                body: Math.sin(time) * 0.1,
+                flapAngle: Math.sin(time * 2) * 0.2,
+                tailSwing: time // Kirim nilai time untuk animasi ekor
+            });
             // Draw Empoleon
             const empoleonParentMatrix = LIBS.multiply(this.empoleonModelMatrix, iceParentMatrix);
             this.empoleon.draw(this.shader, empoleonParentMatrix);
