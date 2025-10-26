@@ -16,7 +16,7 @@ class Renderer {
 
         this.shader = this.createShaderProgram();
 
-        // NEW: Create skybox shader, buffers, and texture
+        // Create skybox shader, buffers, and texture
         this.skyboxShader = this.createSkyboxShaderProgram();
         this.skyboxBuffers = this.createSkyboxBuffers();
         this.skyboxTexture = this.loadCubemapTexture([
@@ -38,9 +38,9 @@ class Renderer {
 
         this.environment = new Environment(this.gl, this);
 
-        // NEW: Create a static matrix for Piplup's offset
+        // Create a static matrix for Piplup's offset
         this.piplupModelMatrix = LIBS.get_I4();
-        LIBS.translateX(this.piplupModelMatrix, -6.0); // Position 5 units to the left
+        LIBS.translateX(this.piplupModelMatrix, -6.0); // Offset 6 units to the left
         LIBS.scale(this.piplupModelMatrix, 0.9); // Make it 90% of the size
 
         this.prinplupModelMatrix = LIBS.get_I4();
@@ -50,9 +50,9 @@ class Renderer {
 
         // Static matrix for Empoleon
         this.empoleonModelMatrix = LIBS.get_I4();
-        LIBS.translateX(this.empoleonModelMatrix, 6.0); // Position 5 units to the right
-        LIBS.translateY(this.empoleonModelMatrix, -0.4); // Position 5 units to the right
-        LIBS.scale(this.empoleonModelMatrix, 1.9); // Keep it at 100% size
+        LIBS.translateX(this.empoleonModelMatrix, 6.0); // Offset 6 units to the right
+        LIBS.translateY(this.empoleonModelMatrix, -0.4);
+        LIBS.scale(this.empoleonModelMatrix, 1.9);
         
         this.viewMatrix = LIBS.get_I4();
         LIBS.translateZ(this.viewMatrix, -16);
@@ -219,7 +219,7 @@ class Renderer {
      */
     createSkyboxBuffers() {
         const gl = this.gl;
-        const skyboxGeo = Geometry.generateSkyboxCube(1.0); // Size doesn't matter, we scale it
+        const skyboxGeo = Geometry.generateSkyboxCube(1.0);
 
         const vertexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
@@ -437,8 +437,8 @@ class Renderer {
             // --- UPDATE MODELS ---
             this.environment.updateAnimation(); // Updates ice island float
 
-            // NEW: Update Piplup's animation
-            // Note: Piplup's update function just takes 'time', not 'animationValues'
+            // Update Piplup animation
+            // Piplup update function just takes 'time', not 'animationValues'
             this.piplup.updateAnimation(timeInSeconds * 7); // *1.5 to make it run a bit faster
 
             this.Prinplup.updateAnimation(animationValues); // Updates body/hand anims
@@ -452,20 +452,20 @@ class Renderer {
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
             // === 1. DRAW SKYBOX ===
-            gl.depthMask(false); // Disable writing to the depth buffer
+            gl.depthMask(false);
             gl.useProgram(this.skyboxShader.program);
 
-            // NEW: Disable attributes from the main shader that we don't use
+            // Disable attributes from the main shader that we don't use
             gl.disableVertexAttribArray(this.shader.locations.color);
             gl.disableVertexAttribArray(this.shader.locations.texcoord);
             gl.disableVertexAttribArray(this.shader.locations.normal);
             // We leave 'position' enabled as both shaders use it
 
-            // NEW: Create a view matrix for the skybox that includes the mouse rotation
+            // Create a view matrix for the skybox that includes the mouse rotation
             // this.environment.modelMatrix holds the rotation from the mouse
             const skyboxViewMatrix = LIBS.multiply(this.viewMatrix, this.environment.modelMatrix);
 
-            // MODIFIED: Use the new skyboxViewMatrix instead of this.viewMatrix
+            // Use the new skyboxViewMatrix instead of this.viewMatrix
             gl.uniformMatrix4fv(this.skyboxShader.locations.Pmatrix, false, this.projMatrix);
             gl.uniformMatrix4fv(this.skyboxShader.locations.Vmatrix, false, skyboxViewMatrix);
 
@@ -489,7 +489,7 @@ class Renderer {
             // === 2. DRAW MAIN SCENE ===
             gl.useProgram(this.shader.program); // Switch back to the main shader
 
-            // NEW: Re-enable attributes for the main shader
+            // Re-enable attributes for the main shader
             gl.enableVertexAttribArray(this.shader.locations.color);
             gl.enableVertexAttribArray(this.shader.locations.texcoord);
             gl.enableVertexAttribArray(this.shader.locations.normal);
@@ -502,7 +502,7 @@ class Renderer {
             // Get the final animated matrix of the ice island
             const iceParentMatrix = this.environment.getIceIslandWorldMatrix();
 
-            // Draw Piplup
+            // Piplup draw
             // First, combine the ice matrix with Piplup's static offset
             const piplupParentMatrix = LIBS.multiply(this.piplupModelMatrix, iceParentMatrix);
             // Then, draw Piplup using this final matrix
@@ -517,7 +517,7 @@ class Renderer {
                 flapAngle: Math.sin(time * 2) * 0.2,
                 tailSwing: time // Kirim nilai time untuk animasi ekor
             });
-            // Draw Empoleon
+            // Empoleon draw
             const empoleonParentMatrix = LIBS.multiply(this.empoleonModelMatrix, iceParentMatrix);
             this.empoleon.draw(this.shader, empoleonParentMatrix);
 
