@@ -15,14 +15,14 @@ export class Empoleon {
 
         // NEW: For future animations
         this.animatedNodes = {
-            breathingNode: null, // <-- ADDED: Node to control overall Y position + animation
-            leftHand: null,      // <-- ADDED: Node for left hand geometry
-            rightHand: null,      // <-- ADDED: Node for right hand geometry
+            breathingNode: null,
+            leftHand: null,      
+            rightHand: null,      
             tailNode: null
         };
         this.baseTransforms = {
-            leftHand: LIBS.get_I4(), // <-- ADDED: Base pose for left hand
-            rightHand: LIBS.get_I4(), // <-- ADDED: Base pose for right hand
+            leftHand: LIBS.get_I4(),
+            rightHand: LIBS.get_I4(),
             tail: LIBS.get_I4()
         };
 
@@ -38,7 +38,7 @@ export class Empoleon {
             TAIL: [0.30, 0.54, 0.80], EMPO_BASE: [0.2, 0.247, 0.278], EMPO_LOWER_BODY: [0.18, 0.224, 0.247]
         };
 
-        // Helper function to create a translation matrix using your libs.js functions
+        // Matriks translasi
         const createTransform = (x, y, z) => {
             const m = LIBS.get_I4();
             LIBS.translateX(m, x);
@@ -49,12 +49,10 @@ export class Empoleon {
 
         const headTexture = this.renderer.loadTexture("Resource/empoleon_texture.png");
 
-        // --- NEW HIERARCHY SETUP ---
-        // 1. Create the invisible "breathing" node.
+        // HIERARCHY -> parent: rootNode, child: breathingNode
         const breathingNode = new ModelNode(gl);
         this.rootNode.addChild(breathingNode);
         this.animatedNodes.breathingNode = breathingNode;
-        // --- END NEW HIERARCHY ---
 
         const body_profile = [
             // Duplicates removed for correct normals
@@ -99,11 +97,8 @@ export class Empoleon {
             [0.0, -1.3, 0]   // Bottom point
         ];
 
-        // Define parts and their local transformations
-        // --- NOTE: All transforms defined here should be RELATIVE to their parent ---
-        // --- Since all parts are children of breathingNode, these are relative to (0,0,0) for now ---
+        // Bikin bagian-bagiannya tubuhnya (shape)
         const partDefinitions = [
-            // NEW Prinplup Body
             {
                 geom: Geometry.generateLathe(body_profile, 30, C.BODY),
                 trans: (() => {
@@ -111,7 +106,7 @@ export class Empoleon {
                     LIBS.rotateY(m, Math.PI / 2);
                     LIBS.scale(m, 1.2);
                     return m
-                })(), // Slightly raise the body
+                })(), 
                 texture: headTexture
             },
 
@@ -315,10 +310,9 @@ export class Empoleon {
                 })()},
 
             // --- Hands ---
-            // MODIFIED: Added names and parentName (parent is breathingNode)
             {
-                name: 'leftHand', // <-- ADDED
-                parentName: 'breathingNode', // <-- ADDED
+                name: 'leftHand',
+                parentName: 'breathingNode', 
                 geom: Geometry.generateSphere(0.2, 1.5, 0.5, 15, 15, C.EMPO_BASE),
                 trans: (() => {
                     let m = createTransform(-1.2, 0.25, 0.2);
@@ -328,8 +322,8 @@ export class Empoleon {
                 })()
             },
             {
-                name: 'rightHand', // <-- ADDED
-                parentName: 'breathingNode', // <-- ADDED
+                name: 'rightHand',
+                parentName: 'breathingNode', 
                 geom: Geometry.generateSphere(0.2, 1.5, 0.5, 15, 15, C.EMPO_BASE),
                 trans: (() => {
                     let m = createTransform(1.2, 0.25, 0.2);
@@ -340,13 +334,10 @@ export class Empoleon {
             },
 
             // --- Outer Hands / Spikes ---
-            // MODIFIED: Added parentName (parent is the corresponding hand)
-            // Primary blue hand
             {
-                parentName: 'leftHand', // <-- ADDED
+                parentName: 'leftHand',
                 geom: Geometry.generateHalfEllipsoid(0.15, 1.5, 0.6, 15, 15, C.HEAD, 'lower'),
                 trans: (() => {
-                    // This transform MUST become relative to the parent hand later
                     let m = LIBS.get_I4();
                     // let m = createTransform(-1.225, 0.20, 0.2);
                     // LIBS.rotateZ(m, LIBS.degToRad(-30));
@@ -355,12 +346,9 @@ export class Empoleon {
                 })()
             },
             {
-                parentName: 'leftHand', // <-- ADDED
+                parentName: 'leftHand',
                 geom: Geometry.generateComplexCone(0.2, 0, 0.4, 4, 20, C.HEAD),
                 trans: (() => {
-                    // This transform MUST become relative to the parent hand later
-                    // let m = LIBS.get_I4();
-
                     let m = createTransform(0, 0, 0.55);
                     LIBS.rotateZ(m, LIBS.degToRad(180));
                     LIBS.rotateY(m, LIBS.degToRad(30));
@@ -368,7 +356,7 @@ export class Empoleon {
                     return m;
                 })()
             },
-            // ... (Repeat adding parentName: 'leftHand' or 'rightHand' for all spikes and fingers) ...
+        
             {
                 parentName: 'leftHand', geom: Geometry.generateComplexCone(0.2, 0, 0.4, 4, 20, C.HEAD),
                 trans: (() => {
@@ -611,7 +599,7 @@ export class Empoleon {
             LIBS.translateX(T_down_right, pivotX); // Mirrored X
 
             const R_right = LIBS.get_I4();
-            LIBS.rotateY(R_right, flapAngle); // Opposite direction
+            LIBS.rotateY(R_right, flapAngle); // Arah sebaliknya dari R_left
 
             // Combine for animation matrix: M_anim = T_up * R_z * T_down
             let rightAnim = LIBS.multiply(R_right, T_down_right);
