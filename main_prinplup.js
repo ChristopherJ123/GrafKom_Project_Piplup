@@ -38,28 +38,27 @@ class Environment {
             WATER_BLUE: [0.192, 0.502, 0.647]
         };
 
-        // 1. Ice Island
+        // Ice Island
         const iceIslandNode = new ModelNode(gl, Geometry.generateIrregularExtrudedPolygon(6, 6, 1, C.SNOW_WHITE, 0.5));
         iceIslandNode.setBaseTransform(createTransform(0, -2.7, 0));
         this.rootNode.addChild(iceIslandNode);
-        this.animatedNodes.iceIsland = iceIslandNode; // Save for animation
+        this.animatedNodes.iceIsland = iceIslandNode;
 
-        // 2. Water
+        // Water
         const waterNode = new ModelNode(gl, Geometry.generateWaterPlane(25, 25, 1, 1, C.WATER_BLUE));
         waterNode.setBaseTransform(createTransform(0, -2.6, 0));
         this.rootNode.addChild(waterNode);
     }
 
-    // NEW: Central animation update
+    // Animation update
     updateAnimation() {
         this.animationTime += 0.02;
 
-        // 1. Calculate float animation
+        // Calculate float animation
         const amplitude = 0.1;
         const floatY = Math.sin(this.animationTime) * amplitude;
 
-        // 2. Apply animation to the ice island
-        // Note: We combine with the base matrix
+        // Apply animation to the ice island (combine with the base matrix)
         const T_float = LIBS.get_I4();
         LIBS.translateY(T_float, floatY);
 
@@ -68,17 +67,14 @@ class Environment {
         iceNode.setLocalTransform(finalIceMatrix);
     }
 
-    // MODIFIED: Return the final computed world matrix of the island
+    // Ice Island: return the final computed world matrix of the island
     getIceIslandWorldMatrix() {
-        // Ensure the matrix is up-to-date before returning it
         this.rootNode.updateWorldMatrix(this.modelMatrix);
         return this.animatedNodes.iceIsland.worldMatrix;
     }
 
     draw(shader) {
-        // Update all world matrices
         this.rootNode.updateWorldMatrix(this.modelMatrix);
-        // Start recursive draw
         this.rootNode.draw(shader);
     }
 }
@@ -149,9 +145,8 @@ class Renderer {
             } else {
                 baseColor = vec4(vColor, 1.);
             }
-            // Apply lighting
             vec4 litColor = vec4(baseColor.rgb * (0.9 + diffuse * 0.2), baseColor.a);
-            // Apply ambient light (0.9) + diffuse light (0.2)
+            // ambient light (0.9) + diffuse light (0.2)
             gl_FragColor = vec4(baseColor.rgb * (0.9 + diffuse * 0.2), baseColor.a);
         }`;
 
@@ -202,7 +197,6 @@ class Renderer {
         const texture = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, texture);
 
-        // Placeholder pixel
         gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 255, 255]));
 
         const image = new Image();
@@ -247,7 +241,7 @@ class Renderer {
             LIBS.rotateY(rotationMatrix, THETA);
             LIBS.rotateX(rotationMatrix, PHI);
 
-            // The rotation is applied to the Prinplup's root node
+            // rotation applied to Prinplup's root node
             this.Prinplup.modelMatrix = rotationMatrix;
         };
 
@@ -287,61 +281,55 @@ class Renderer {
         const render = (now) => {
             this.updateRotation();
 
-            // --- CALCULATE ANIMATION VALUES ---
             const timeInSeconds = now * 0.0008;
             const bodyBreathSpeed = 1.5;
             const bodyBreathAmount = 0.02;
             const bodyBreathOffset  = Math.cos(timeInSeconds * bodyBreathSpeed * Math.PI) * bodyBreathAmount;
-
-            // Body breathe - Scale
             const bodyBreathAmountScale = 0.02;
             const bodyBreathScale = 1.0 + Math.cos(timeInSeconds * bodyBreathSpeed * Math.PI) * bodyBreathAmountScale;
 
-            const breathCycleDuration = 2 / bodyBreathSpeed; // Time for one inhale/exhale
+            const breathCycleDuration = 2 / bodyBreathSpeed;
             const timeInCycle = (timeInSeconds % breathCycleDuration);
-            const breathPhase = (timeInCycle / breathCycleDuration); // 0 to 1
+            const breathPhase = (timeInCycle / breathCycleDuration);
             let breathAlpha = 0.0;
-            let currentBreathScale = 0.1; // Start small
-            const breathStartPhase = 0.0; // Mulai hembusan saat tubuh mulai mengecil
-            const breathEndPhase = 0.5;   // Akhiri hembusan saat tubuh paling kecil
-            const phaseDuration = breathEndPhase - breathStartPhase; // Durasi = 0.5
+            let currentBreathScale = 0.1;
+            const breathStartPhase = 0.0;
+            const breathEndPhase = 0.5;
+            const phaseDuration = breathEndPhase - breathStartPhase; 
 
             if (breathPhase >= breathStartPhase && breathPhase <= breathEndPhase) {
-                const phaseProgress = (breathPhase - breathStartPhase) / phaseDuration; // 0 sampai 1
-                // Gunakan sin untuk fade in/out yang mulus
-                breathAlpha = Math.sin(phaseProgress * Math.PI) * 0.4; // Puncak alpha 0.4
-                // Skala membesar selama hembusan
-                currentBreathScale = 0.9 + phaseProgress * 1.5; // Skala dari 0.5 sampai 2.0
+                const phaseProgress = (breathPhase - breathStartPhase) / phaseDuration;
+                breathAlpha = Math.sin(phaseProgress * Math.PI) * 0.4; // puncak alpha 0.4
+                currentBreathScale = 0.9 + phaseProgress * 1.5; // scale up selama hembusan 0.5 to 2.0
             }
 
             // const eyeBreathSpeed = 1.5;
             // const eyeBreathAmount = 0.02;
             // const eyeBreathScale = 1.0 + Math.sin(timeInSeconds * eyeBreathSpeed * Math.PI) * eyeBreathAmount;
 
-            const diskBreathSpeed = 1.0;
-            const diskBreathAmount = 0.01;
-            const diskBreathScale = 1.0 + Math.cos(timeInSeconds * diskBreathSpeed * Math.PI) * diskBreathAmount;
+            // const diskBreathSpeed = 1.0;
+            // const diskBreathAmount = 0.01;
+            // const diskBreathScale = 1.0 + Math.cos(timeInSeconds * diskBreathSpeed * Math.PI) * diskBreathAmount;
 
-            // NEW: Add flap calculation
             const flapSpeed = 1;
-            const flapAmount = 0.1; // Radians
+            const flapAmount = 0.2; // radians
             const flapAngle = Math.sin(timeInSeconds * flapSpeed * Math.PI) * flapAmount;
 
             const animationValues = {
                 bodyTranslate: bodyBreathOffset,
                 bodyScale: bodyBreathScale,
                 // eye: eyeBreathScale,
-                disk: diskBreathScale, // Note: 'disk' animation isn't used by any part, but is calculated
+                // disk: diskBreathScale,
                 flapAngle: flapAngle,
                 breathAlpha: breathAlpha,
                 breathScale: currentBreathScale
             };
-            // --- END ANIMATION VALUES ---
 
-            // --- NEW UPDATE LOGIC ---
+
             // 1. Update all animations
-            this.environment.updateAnimation(); // Updates ice island float
-            this.Prinplup.updateAnimation(animationValues); // Updates body/eye anims
+            this.environment.updateAnimation();
+            this.Prinplup.updateAnimation(animationValues);
+
 
             gl.viewport(0, 0, this.canvas.width, this.canvas.height);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
@@ -349,7 +337,7 @@ class Renderer {
             gl.uniformMatrix4fv(this.shader.locations.Pmatrix, false, this.projMatrix);
             gl.uniformMatrix4fv(this.shader.locations.Vmatrix, false, this.viewMatrix);
 
-            // Set the light position
+            // set the light position
             gl.uniform3fv(this.shader.locations.u_lightPosition, [5, 15, 10]);
 
             // 2. Get the final animated matrix of the ice island
@@ -357,7 +345,6 @@ class Renderer {
 
             // 3. Draw the models
             this.Prinplup.draw(this.shader, iceParentMatrix, this.isAwake);
-            // The environment just draws relative to the world
             this.environment.draw(this.shader);
 
             requestAnimationFrame(render);

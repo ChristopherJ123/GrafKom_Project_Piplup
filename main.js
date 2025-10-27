@@ -16,7 +16,7 @@ class Renderer {
 
         this.shader = this.createShaderProgram();
 
-        // NEW: Create skybox shader, buffers, and texture
+        // Create skybox shader, buffers, and texture
         this.skyboxShader = this.createSkyboxShaderProgram();
         this.skyboxBuffers = this.createSkyboxBuffers();
         this.skyboxTexture = this.loadCubemapTexture([
@@ -28,19 +28,15 @@ class Renderer {
             'Resource/skybox/frozenft.png'  // Negative Z (Front)
         ]);
 
-        // Piplup
+        // Init objects
         this.piplup = new Piplup(this.gl, this);
-
         this.Prinplup = new Prinplup(this.gl, this);
-
-        // Empoleon
         this.empoleon = new Empoleon(this.gl, this);
-
         this.environment = new Environment(this.gl, this);
 
-        // NEW: Create a static matrix for Piplup's offset
+        // Create a static matrix for Piplup's offset
         this.piplupModelMatrix = LIBS.get_I4();
-        LIBS.translateX(this.piplupModelMatrix, -6.0); // Position 5 units to the left
+        LIBS.translateX(this.piplupModelMatrix, -6.0); // Offset 6 units to the left
         LIBS.scale(this.piplupModelMatrix, 0.9); // Make it 90% of the size
 
         this.prinplupModelMatrix = LIBS.get_I4();
@@ -50,9 +46,9 @@ class Renderer {
 
         // Static matrix for Empoleon
         this.empoleonModelMatrix = LIBS.get_I4();
-        LIBS.translateX(this.empoleonModelMatrix, 6.0); // Position 5 units to the right
-        LIBS.translateY(this.empoleonModelMatrix, -0.4); // Position 5 units to the right
-        LIBS.scale(this.empoleonModelMatrix, 1.9); // Keep it at 100% size
+        LIBS.translateX(this.empoleonModelMatrix, 6.0); // Offset 6 units to the right
+        LIBS.translateY(this.empoleonModelMatrix, -0.4);
+        LIBS.scale(this.empoleonModelMatrix, 1.9);
         
         this.viewMatrix = LIBS.get_I4();
         LIBS.translateZ(this.viewMatrix, -16);
@@ -108,9 +104,8 @@ class Renderer {
             } else {
                 baseColor = vec4(vColor, 1.);
             }
-            // Apply lighting
             vec4 litColor = vec4(baseColor.rgb * (0.9 + diffuse * 0.2), baseColor.a);
-            // Apply ambient light (0.9) + diffuse light (0.2)
+            // ambient light (0.9) + diffuse light (0.2)
             gl_FragColor = vec4(baseColor.rgb * (0.9 + diffuse * 0.2), baseColor.a);
         }`;
 
@@ -157,10 +152,6 @@ class Renderer {
         return shader;
     }
 
-    /**
-     * Creates a new shader program specifically for the skybox.
-     * This shader is simple: it's not affected by lighting.
-     */
     createSkyboxShaderProgram() {
         const gl = this.gl;
         const vsSource = `
@@ -185,7 +176,6 @@ class Renderer {
             // This ensures it's always drawn behind everything else.
             gl_Position = gl_Position.xyww;
         }`;
-
         const fsSource = `
         precision mediump float;
         varying vec3 v_texCoord;
@@ -214,12 +204,9 @@ class Renderer {
         return { program, locations };
     }
 
-    /**
-     * Creates the vertex and face buffers for the skybox.
-     */
     createSkyboxBuffers() {
         const gl = this.gl;
-        const skyboxGeo = Geometry.generateSkyboxCube(1.0); // Size doesn't matter, we scale it
+        const skyboxGeo = Geometry.generateSkyboxCube(1.0);
 
         const vertexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
@@ -236,9 +223,6 @@ class Renderer {
         };
     }
 
-    /**
-     * Loads 6 images into a single CUBE_MAP texture.
-     */
     loadCubemapTexture(urls) {
         const gl = this.gl;
         const texture = gl.createTexture();
@@ -254,7 +238,7 @@ class Renderer {
 
         for (let i = 0; i < 6; i++) {
             const image = new Image();
-            image.crossOrigin = "anonymous"; // In case you load from another domain
+            image.crossOrigin = "anonymous"; // in case you load pics from another domain
             image.onload = () => {
                 gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
                 gl.texImage2D(targets[i], 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
@@ -306,16 +290,13 @@ class Renderer {
         this.canvas.onmouseout = () => { drag = false; };
         this.canvas.onmousemove = (e) => {
             if (!drag) return;
-            // Calculate mouse delta only
             dX_mouse = (e.pageX - x_prev) * 2 * Math.PI / this.canvas.width;
             dY_mouse = (e.pageY - y_prev) * 2 * Math.PI / this.canvas.height;
-            // Don't directly add to THETA/PHI here, let updateEnvironmentRotation handle it
             x_prev = e.pageX;
             y_prev = e.pageY;
             e.preventDefault();
         };
 
-        // --- Keyboard Event Listeners (Keep as before, just track keys) ---
         const keyDownHandler = (e) => {
             this.keysPressed[e.key.toLowerCase()] = true;
         };
@@ -325,47 +306,35 @@ class Renderer {
         window.addEventListener("keydown", keyDownHandler, false);
         window.addEventListener("keyup", keyUpHandler, false);
 
-        // --- HAPUS FUNGSI LAMA INI ---
-        // this.updateMouseRotation = () => { ... };
-        // this.updateCameraRotation = () => { ... };
-
-        // --- TAMBAHKAN FUNGSI BARU INI (Gabungan) ---
         this.updateEnvironmentRotation = () => {
-            let dX_key = 0, dY_key = 0; // Keyboard delta
+            let dX_key = 0, dY_key = 0;
 
-            // Calculate keyboard delta
             if (this.keysPressed['a']) { dX_key += KEY_ROTATION_SPEED; }
             if (this.keysPressed['d']) { dX_key -= KEY_ROTATION_SPEED; }
             if (this.keysPressed['w']) { dY_key += KEY_ROTATION_SPEED; }
             if (this.keysPressed['s']) { dY_key -= KEY_ROTATION_SPEED; }
 
-            // Apply friction if mouse is not dragging
             if (!drag) {
                 dX_mouse *= (1 - FRICTION);
                 dY_mouse *= (1 - FRICTION);
             }
 
-            // Combine deltas from mouse and keyboard
             const totalDX = dX_mouse + dX_key;
             const totalDY = dY_mouse + dY_key;
 
-            // Update angles
             THETA += totalDX;
             PHI += totalDY;
 
-            // Limit vertical rotation (optional but recommended)
             PHI = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, PHI));
-
-            // Reset mouse delta after applying (keyboard delta is recalculated each frame)
+            
             dX_mouse = 0;
             dY_mouse = 0;
 
-            // Create the final rotation matrix
+            
             const rotationMatrix = LIBS.get_I4();
-            LIBS.rotateY(rotationMatrix, THETA); // Horizontal rotation
-            LIBS.rotateX(rotationMatrix, PHI);   // Vertical rotation
+            LIBS.rotateY(rotationMatrix, THETA);
+            LIBS.rotateX(rotationMatrix, PHI);
 
-            // Apply the combined rotation to the environment's model matrix
             this.environment.modelMatrix = rotationMatrix;
         };
     }
@@ -384,88 +353,72 @@ class Renderer {
             this.updateEnvironmentRotation();
              time += 0.02;
 
-            // --- CALCULATE ANIMATION VALUES ---
             const timeInSeconds = now * 0.0008;
             const bodyBreathSpeed = 1.5;
             const bodyBreathAmount = 0;
             const bodyBreathOffset  = Math.cos(timeInSeconds * bodyBreathSpeed * Math.PI) * bodyBreathAmount;
-
-            // Body breathe - Scale
             const bodyBreathAmountScale = 0.02;
             const bodyBreathScale = 1.0 + Math.cos(timeInSeconds * bodyBreathSpeed * Math.PI) * bodyBreathAmountScale;
 
-            const breathCycleDuration = 2 / bodyBreathSpeed; // Time for one inhale/exhale
+            const breathCycleDuration = 2 / bodyBreathSpeed;
             const timeInCycle = (timeInSeconds % breathCycleDuration);
-            const breathPhase = (timeInCycle / breathCycleDuration); // 0 to 1
+            const breathPhase = (timeInCycle / breathCycleDuration);
             let breathAlpha = 0.0;
-            let currentBreathScale = 0.1; // Start small
-            const breathStartPhase = 0.0; // Mulai hembusan saat tubuh mulai mengecil
-            const breathEndPhase = 0.5;   // Akhiri hembusan saat tubuh paling kecil
-            const phaseDuration = breathEndPhase - breathStartPhase; // Durasi = 0.5
+            let currentBreathScale = 0.1;
+            const breathStartPhase = 0.0;
+            const breathEndPhase = 0.5;
+            const phaseDuration = breathEndPhase - breathStartPhase;
 
             if (breathPhase >= breathStartPhase && breathPhase <= breathEndPhase) {
-                const phaseProgress = (breathPhase - breathStartPhase) / phaseDuration; // 0 sampai 1
-                // Gunakan sin untuk fade in/out yang mulus
-                breathAlpha = Math.sin(phaseProgress * Math.PI) * 0.4; // Puncak alpha 0.4
-                // Skala membesar selama hembusan
-                currentBreathScale = 0.9 + phaseProgress * 1.5; // Skala dari 0.5 sampai 2.0
+                const phaseProgress = (breathPhase - breathStartPhase) / phaseDuration;
+                breathAlpha = Math.sin(phaseProgress * Math.PI) * 0.4; // puncak alpha 0.4
+                currentBreathScale = 0.9 + phaseProgress * 1.5; // scale up selama hembusan 0.5 to 2.0
             }
 
-            const eyeBreathSpeed = 1.5;
-            const eyeBreathAmount = 0.02;
-            const eyeBreathScale = 1.0 + Math.sin(timeInSeconds * eyeBreathSpeed * Math.PI) * eyeBreathAmount;
+            // const eyeBreathSpeed = 1.5;
+            // const eyeBreathAmount = 0.02;
+            // const eyeBreathScale = 1.0 + Math.sin(timeInSeconds * eyeBreathSpeed * Math.PI) * eyeBreathAmount;
 
-            const diskBreathSpeed = 1.0;
-            const diskBreathAmount = 0.01;
-            const diskBreathScale = 1.0 + Math.cos(timeInSeconds * diskBreathSpeed * Math.PI) * diskBreathAmount;
+            // const diskBreathSpeed = 1.0;
+            // const diskBreathAmount = 0.01;
+            // const diskBreathScale = 1.0 + Math.cos(timeInSeconds * diskBreathSpeed * Math.PI) * diskBreathAmount;
 
             const flapSpeed = 1.0;
-            const flapAmount = 0.1; // Radians
+            const flapAmount = 0.1; // radians
             const flapAngle = Math.sin(timeInSeconds * flapSpeed * Math.PI) * flapAmount;
 
             const animationValues = {
                 bodyTranslate: bodyBreathOffset,
                 bodyScale: bodyBreathScale,
-                eye: eyeBreathScale,
-                disk: diskBreathScale,
+                // eye: eyeBreathScale,
+                // disk: diskBreathScale,
                 flapAngle: flapAngle,
                 breathAlpha: breathAlpha,
                 breathScale: currentBreathScale
             };
-            // --- END ANIMATION VALUES ---
 
-            // --- UPDATE MODELS ---
-            this.environment.updateAnimation(); // Updates ice island float
-
-            // NEW: Update Piplup's animation
-            // Note: Piplup's update function just takes 'time', not 'animationValues'
-            this.piplup.updateAnimation(timeInSeconds * 7); // *1.5 to make it run a bit faster
-
-            this.Prinplup.updateAnimation(animationValues); // Updates body/hand anims
-
-            // Empoleon update animation
+            // 1. Update all animations
+            this.environment.updateAnimation();
+            this.piplup.updateAnimation(timeInSeconds * 7); // ++; faster
+            this.Prinplup.updateAnimation(animationValues);
             this.empoleon.updateAnimation(animationValues);
 
 
-            // --- RENDER ---
             gl.viewport(0, 0, this.canvas.width, this.canvas.height);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-            // === 1. DRAW SKYBOX ===
-            gl.depthMask(false); // Disable writing to the depth buffer
+            // SKYBOX
+            gl.depthMask(false);
             gl.useProgram(this.skyboxShader.program);
-
-            // NEW: Disable attributes from the main shader that we don't use
+            // disable attributes from the main shader that are not used
             gl.disableVertexAttribArray(this.shader.locations.color);
             gl.disableVertexAttribArray(this.shader.locations.texcoord);
             gl.disableVertexAttribArray(this.shader.locations.normal);
-            // We leave 'position' enabled as both shaders use it
-
-            // NEW: Create a view matrix for the skybox that includes the mouse rotation
-            // this.environment.modelMatrix holds the rotation from the mouse
+            // position enabled (both shaders use it)
+            // this.environment.modelMatrix yang holds mouse listener
             const skyboxViewMatrix = LIBS.multiply(this.viewMatrix, this.environment.modelMatrix);
 
-            // MODIFIED: Use the new skyboxViewMatrix instead of this.viewMatrix
+            // use skyboxViewMatrix instead of this.viewMatrix
             gl.uniformMatrix4fv(this.skyboxShader.locations.Pmatrix, false, this.projMatrix);
             gl.uniformMatrix4fv(this.skyboxShader.locations.Vmatrix, false, skyboxViewMatrix);
 
@@ -473,9 +426,7 @@ class Renderer {
             gl.bindTexture(gl.TEXTURE_CUBE_MAP, this.skyboxTexture);
             gl.uniform1i(this.skyboxShader.locations.u_skybox, 0);
 
-            // Bind buffers
             gl.bindBuffer(gl.ARRAY_BUFFER, this.skyboxBuffers.vertex);
-            // Tell WebGL how to read the position-only buffer
             gl.vertexAttribPointer(this.skyboxShader.locations.position, 3, gl.FLOAT, false, 0, 0);
 
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.skyboxBuffers.faces);
@@ -483,41 +434,36 @@ class Renderer {
             // Draw
             gl.drawElements(gl.TRIANGLES, this.skyboxBuffers.faces_length, gl.UNSIGNED_SHORT, 0);
 
-            gl.depthMask(true); // Re-enable depth writing
+            gl.depthMask(true); // re-enable depth writing
             gl.bindTexture(gl.TEXTURE_CUBE_MAP, null); // Unbind the cubemap from the active unit (0)
 
-            // === 2. DRAW MAIN SCENE ===
-            gl.useProgram(this.shader.program); // Switch back to the main shader
+            // 2. Draw main scene
+            gl.useProgram(this.shader.program); // switch back to the main shader
 
-            // NEW: Re-enable attributes for the main shader
+            // re-enable attributes for the main shader
             gl.enableVertexAttribArray(this.shader.locations.color);
             gl.enableVertexAttribArray(this.shader.locations.texcoord);
             gl.enableVertexAttribArray(this.shader.locations.normal);
 
-            // Set main scene uniforms
+            // set main scene uniforms
             gl.uniformMatrix4fv(this.shader.locations.Pmatrix, false, this.projMatrix);
             gl.uniformMatrix4fv(this.shader.locations.Vmatrix, false, this.viewMatrix);
             gl.uniform3fv(this.shader.locations.u_lightPosition, [5, 15, 10]);
 
-            // Get the final animated matrix of the ice island
+
             const iceParentMatrix = this.environment.getIceIslandWorldMatrix();
 
-            // Draw Piplup
-            // First, combine the ice matrix with Piplup's static offset
             const piplupParentMatrix = LIBS.multiply(this.piplupModelMatrix, iceParentMatrix);
-            // Then, draw Piplup using this final matrix
             this.piplup.draw(this.shader, piplupParentMatrix);
 
             const prinplupParentMatrix = LIBS.multiply(this.prinplupModelMatrix, iceParentMatrix);
-            this.Prinplup.draw(this.shader, prinplupParentMatrix, true); // false: dance. better implement with sound
+            this.Prinplup.draw(this.shader, prinplupParentMatrix, false); // false: dance. better implement with sound
 
-            // Update animasi dengan nilai time
             this.empoleon.updateAnimation({
                 body: Math.sin(time) * 0.1,
                 flapAngle: Math.sin(time * 2) * 0.2,
-                tailSwing: time // Kirim nilai time untuk animasi ekor
+                tailSwing: time
             });
-            // Draw Empoleon
             const empoleonParentMatrix = LIBS.multiply(this.empoleonModelMatrix, iceParentMatrix);
             this.empoleon.draw(this.shader, empoleonParentMatrix);
 
@@ -530,6 +476,5 @@ class Renderer {
 }
 
 window.addEventListener('load', () => {
-    // Make sure your canvas ID matches
-    new Renderer('prinplup-canvas');
+    new Renderer('main-canvas');
 });

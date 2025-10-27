@@ -1,6 +1,6 @@
 import { LIBS } from "./Resource/Libs.js";
+
 // --- UTILITY FOR GEOMETRY ---
-// We place the geometry generation logic in its own object to keep things organized.
 const Geometry = {
     generateSphere: function (a, b, c, stack, step, color) {
         const vertices = [];
@@ -17,9 +17,9 @@ const Geometry = {
                 const z = c * Math.sin(theta) * Math.sin(phi);
 
 
-                // We add 0.25 to shift the coordinates, so v=0.25 (front) maps to U=0.5 (texture center)
-                const texU = (v + 0.25); // Use modulo to wrap around
-                vertices.push(x, y, z, color[0], color[1], color[2], texU, u - 1.0);            }
+                const texU = (v + 0.25);
+                vertices.push(x, y, z, color[0], color[1], color[2], texU, u - 1.0);
+            }
         }
         for (let i = 0; i < stack; i++) {
             for (let j = 0; j < step; j++) {
@@ -33,15 +33,6 @@ const Geometry = {
         return { vertices, faces };
     },
 
-    /**
-     * Generates a blunted, beak-like shape.
-     * @param {number} width - Max width (x-axis).
-     * @param {number} thickness - Max thickness (y-axis).
-     * @param {number} length - The length of the beak (z-axis).
-     * @param {number} segments - The number of segments for resolution.
-     * @param {Array<number>} color - The RGB color array.
-     * @returns {{vertices: Array<number>, faces: Array<number>}}
-     */
     generateCircle: function(radius, segments, color) {
         const vertices = [];
         const faces = [];
@@ -49,13 +40,13 @@ const Geometry = {
         // Vertex format: x, y, z, r, g, b, u, v
         vertices.push(0, 0, 0, color[0], color[1], color[2], 0.5, 0.5);
 
-        // Add vertices for the circumference
+        // Add vertices
         for (let i = 0; i <= segments; i++) {
             const theta = (i / segments) * 2 * Math.PI;
             const x = radius * Math.cos(theta);
             const y = radius * Math.sin(theta);
 
-            // Texture coordinates (map circular coords to square UV space)
+            // Texture coordinates
             const u = (x / radius + 1) / 2;
             const v = (y / radius + 1) / 2;
 
@@ -71,7 +62,7 @@ const Geometry = {
         return { vertices, faces };
     },
 
-    // Elliptic paraboloid
+    // Elliptic paraboloid (modified radius)
     generateBeak: function(width, thickness, length, segments, color) {
         const vertices = [];
         const faces = [];
@@ -81,10 +72,8 @@ const Geometry = {
 
         // Build the beak with circular cross-sections
         for (let i = 1; i <= segments; i++) {
-
-            // Key functions
             const t = i / segments; // Parameter from 0 to 1
-            const radiusScale = Math.sqrt(t); // Use sqrt(t) to make the beak fatter at the base and blunter at the tip
+            const radiusScale = Math.sqrt(t); // sqrt(t) agar beak tebel di base dan tumbul di tip
             const currentZ = -length * t; // Move along the negative Z-axis
 
             for (let j = 0; j < segments; j++) {
@@ -116,57 +105,42 @@ const Geometry = {
         return { vertices, faces };
     },
 
-
-    /**
-     * Generates one half (the top half, in positive Y) of a blunted, beak-like shape.
-     * @param {number} width - Max width (x-axis).
-     * @param {number} thickness - Max thickness (y-axis).
-     * @param {number} length - The length of the beak (z-axis).
-     * @param {number} segments - The number of segments for resolution.
-     * @param {Array<number>} color - The RGB color array.
-     * @returns {{vertices: Array<number>, faces: Array<number>}}
-     */
+    // Elliptic paraboloid (modified radius + cut half)
     generateBeakHalf: function(width, thickness, length, segments, color) {
         const vertices = [];
         const faces = [];
 
-        // Tip of the beak (remains the same)
+        // Tip of the beak
         vertices.push(0, 0, 0, color[0], color[1], color[2], 0, 0);
 
         // Build the beak with semi-circular cross-sections
         for (let i = 1; i <= segments; i++) {
-            // Key functions (remain the same)
             const t = i / segments;
             const radiusScale = Math.sqrt(t);
             const currentZ = -length * t;
 
-            // MODIFIED: Loop from 0 to segments (inclusive) to create segments+1 vertices
+            // Build the beak with circular cross-sections
             for (let j = 0; j <= segments; j++) {
-                // MODIFIED: Theta now goes from 0 to PI (180 deg) instead of 0 to 2*PI
+                // Theta now goes from 0 to PI (180 deg) instead of 0 to 2*PI
                 const theta = (j / segments) * Math.PI;
 
                 const x = width * radiusScale * Math.cos(theta);
-                const y = thickness * radiusScale * Math.sin(theta); // This will only be >= 0
+                const y = thickness * radiusScale * Math.sin(theta);
                 vertices.push(x, y, currentZ, color[0], color[1], color[2], t, j / segments);
             }
         }
 
-        // Create faces for the curved tip
-        // MODIFIED: Loop 'j' from 1 to segments (not <=), no modulo needed
+        // Create faces for the tip
         for (let j = 1; j <= segments; j++) {
-            // We connect (0) -> (j) -> (j+1)
             faces.push(0, j, j + 1);
         }
 
-        // Create faces for the curved sides
+        // Create faces for the sides
         for (let i = 0; i < segments - 1; i++) {
-            // MODIFIED: We have (segments + 1) vertices per ring
             const ring1_start = 1 + i * (segments + 1);
             const ring2_start = 1 + (i + 1) * (segments + 1);
 
-            // MODIFIED: Loop 'j' from 0 to segments-1 (to create 'segments' quads)
             for (let j = 0; j < segments; j++) {
-                // MODIFIED: No modulo needed, just use j and j+1
                 const p1 = ring1_start + j;
                 const p2 = ring1_start + j + 1;
                 const p3 = ring2_start + j;
@@ -175,8 +149,7 @@ const Geometry = {
             }
         }
 
-        // NEW: Create faces for the flat "bottom" cap (on the Y=0 plane)
-        // This connects all the edge vertices to seal the model
+        // Create faces for the flat "bottom" cap (on the Y=0 plane)
         for (let i = 0; i < segments; i++) {
             const ring1_start = 1 + (i-1) * (segments + 1);
             const ring2_start = 1 + i * (segments + 1);
@@ -184,8 +157,8 @@ const Geometry = {
             // Get the four corners of the quad we are about to create
             // p1/p2 are on the previous ring, p3/p4 are on the current ring
             // The first vertex (j=0) and last (j=segments) of each ring are on the Y=0 plane.
-            const p1 = (i === 0) ? 0 : ring1_start;              // First vertex of previous ring (or tip)
-            const p2 = (i === 0) ? 0 : ring1_start + segments;  // Last vertex of previous ring (or tip)
+            const p1 = (i === 0) ? 0 : ring1_start;              // First vertex of previous ring
+            const p2 = (i === 0) ? 0 : ring1_start + segments;  // Last vertex of previous ring
             const p3 = ring2_start;                             // First vertex of current ring
             const p4 = ring2_start + segments;                  // Last vertex of current ring
 
@@ -219,39 +192,49 @@ const Geometry = {
             var p3 = points[i + 2];
 
             for (var j = 0; j <= segments; j++) {
+                // Faktor interpolasi t (0.0-1.0)
                 var t = j / segments;
                 var t2 = t * t;
                 var t3 = t2 * t;
 
+                // Catmull-Rom spline formula (see google), a(tension) = 0.5
                 var x = 0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3);
                 var y = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
                 var z = 0.5 * ((2 * p1[2]) + (-p0[2] + p2[2]) * t + (2 * p0[2] - 5 * p1[2] + 4 * p2[2] - p3[2]) * t2 + (-p0[2] + 3 * p1[2] - 3 * p2[2] + p3[2]) * t3);
                 splinePoints.push([x, y, z]);
 
+                // Derivative of the spline formula (the tangent(arah))
                 var tx = 0.5 * ((-p0[0] + p2[0]) + 2 * (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t + 3 * (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t2);
                 var ty = 0.5 * ((-p0[1] + p2[1]) + 2 * (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t + 3 * (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t2);
                 var tz = 0.5 * ((-p0[2] + p2[2]) + 2 * (2 * p0[2] - 5 * p1[2] + 4 * p2[2] - p3[2]) * t + 3 * (-p0[2] + 3 * p1[2] - 3 * p2[2] + p3[2]) * t2);
 
+                // normalisasi vektor tangent (max val 1.0)
                 var mag = Math.sqrt(tx * tx + ty * ty + tz * tz);
                 tangents.push([tx / mag, ty / mag, tz / mag]);
             }
         }
 
+        // faces part
         var up = [0, 1, 0];
         for (var i = 0; i < splinePoints.length; i++) {
             var point = splinePoints[i];
             var tangent = tangents[i];
 
+            // gimbal lock fix
             if (Math.abs(tangent[1]) > 0.999) {
                 up = [1, 0, 0];
             } else {
                 up = [0, 1, 0];
             }
 
+            // Calculate a local coordinate system
+            // cross product of tangent and up
             var normal = [tangent[1] * up[2] - tangent[2] * up[1], tangent[2] * up[0] - tangent[0] * up[2], tangent[0] * up[1] - tangent[1] * up[0]];
             var magN = Math.sqrt(normal[0] * normal[0] + normal[1] * normal[1] + normal[2] * normal[2]);
             normal = [normal[0] / magN, normal[1] / magN, normal[2] / magN];
 
+            // normalisasi normal
+            // cross product of tangent and normal
             var binormal = [tangent[1] * normal[2] - tangent[2] * normal[1], tangent[2] * normal[0] - tangent[0] * normal[2], tangent[0] * normal[1] - tangent[1] * normal[0]];
 
             for (var j = 0; j <= radialSegments; j++) {
@@ -280,11 +263,10 @@ const Geometry = {
     }
 };
 
-// This class will replace BOTH Piplup and PiplupPart
 class ModelNode {
     constructor(gl, geometry = null, texture = null) {
         this.gl = gl;
-        this.geometry = geometry; // The drawable geometry
+        this.geometry = geometry;
         this.texture = texture;
         this.buffers = null;
 
@@ -304,7 +286,7 @@ class ModelNode {
         this.children.push(node);
     }
 
-    // (This is the same buffer creation logic from PiplupPart)
+    // Buffer creation logic
     createBuffers() {
         const vertexBuffer = this.gl.createBuffer();
         this.gl.bindBuffer(this.gl.ARRAY_BUFFER, vertexBuffer);
@@ -322,7 +304,7 @@ class ModelNode {
         this.localMatrix = matrix;
     }
 
-    // NEW: Recursive function to update all matrices in the tree
+    // Recursive function to update all matrices in the tree
     updateWorldMatrix(parentWorldMatrix) {
         // Calculate our own world matrix by multiplying our local matrix
         // with our parent's world matrix.
@@ -340,14 +322,13 @@ class ModelNode {
         }
     }
 
-    // NEW: Recursive function to draw this node and all its children
+    // Recursive function to draw this node and all its children
     draw(shader) {
         // Draw ourself (if we have geometry)
         if (this.buffers) {
             const gl = this.gl;
             gl.uniformMatrix4fv(shader.locations.Mmatrix, false, this.worldMatrix); // Use the final worldMatrix
 
-            // (This is the same draw logic from PiplupPart)
             gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.vertex);
             gl.vertexAttribPointer(shader.locations.position, 3, gl.FLOAT, false, 4 * 8, 0);
             gl.vertexAttribPointer(shader.locations.color, 3, gl.FLOAT, false, 4 * 8, 3 * 4);
@@ -366,7 +347,7 @@ class ModelNode {
             gl.drawElements(gl.TRIANGLES, this.buffers.faces_length, gl.UNSIGNED_SHORT, 0);
         }
 
-        // Now, recursively draw all children
+        // Recursively draw all children
         for (const child of this.children) {
             child.draw(shader);
         }
@@ -384,10 +365,10 @@ class Piplup {
         this.rootNode = new ModelNode(gl);
         this.modelMatrix = LIBS.get_I4(); // This matrix will control the entire Piplup's rotation
 
-        // MODIFIED: Store references to all animated parts
+        // Store references to all animated parts
         this.animatedNodes = {
-            bodyNode: null,     // NEW: This node will handle the Y-translation (bob)
-            bodyGeometry: null,   // NEW: This node will handle the scale (squash)
+            bodyNode: null,     // This node will handle the Y-translation (bob)
+            bodyGeometry: null,   // This node will handle the scale (squash)
             head: null,
             topBeak: null,
             bottomBeak: null,
@@ -397,10 +378,10 @@ class Piplup {
             rightLeg: null
         };
 
-        // NEW: Store the base (default) transformations for animated parts
+        // Store the base (default) transformations for animated parts
         this.baseTransforms = {
-            topBeak: LIBS.get_I4(),    // NEW
-            bottomBeak: LIBS.get_I4(),  // NEW
+            topBeak: LIBS.get_I4(),
+            bottomBeak: LIBS.get_I4(),
             leftFlipper: LIBS.get_I4(),
             rightFlipper: LIBS.get_I4(),
             leftLeg: LIBS.get_I4(),
@@ -417,7 +398,8 @@ class Piplup {
             BODY: [0.52, 0.80, 1.00], HEAD: [0.20, 0.38, 0.64], BEAK: [1.00, 0.84, 0.00], CAPE: [0.24, 0.42, 0.96],
             EYE_W: [1.00, 1.00, 1.00], BLACK: [0.00, 0.00, 0.00], FEET: [1.00, 0.65, 0.00], WHITE: [1.00, 1.00, 1.00]
         };
-        // Helper function to create a translation matrix using your libs.js functions
+
+        // Helper function to create a translation matrix
         const createTransform = (x, y, z) => {
             const m = LIBS.get_I4();
             LIBS.translateX(m, x);
@@ -426,8 +408,9 @@ class Piplup {
             return m;
         };
 
+        // Helper function
         const createOrientedTransform = (radX, radY, radZ, x, y) => {
-            // A. Calculate the precise 'z' on the surface
+            // Calculate z on the surface
             const termX = (x * x) / (radX * radX);
             const termY = (y * y) / (radY * radY);
             const z_on_surface = radZ * Math.sqrt(1.0 - termX - termY);
@@ -435,14 +418,12 @@ class Piplup {
             // Add a tiny offset to prevent clipping
             const z_final = z_on_surface + 0.01;
 
-            // B. Calculate rotation angles to match the surface curve
+            // Calculate rotation angles to match the surface curve
             const angleY = Math.atan2(x, z_final);
             const angleX = -Math.atan2(y, z_final);
 
-            // C. Build the transformation matrix
-            const m = LIBS.get_I4(); // Start with a fresh identity matrix
-
-            // Apply rotations (order matters: Y-axis first, then X-axis)
+            // Build the transformation matrix
+            const m = LIBS.get_I4();
             LIBS.rotateY(m, angleY);
             LIBS.rotateX(m, angleX);
 
@@ -457,30 +438,27 @@ class Piplup {
         // --- Build the Hierarchy ---
         // All transforms are now RELATIVE to their parent.
 
-// 1. Body (Child of the root)
-        // MODIFIED: Create an empty parent node for bobbing
+        // 1. Body (Child of the root)
+        // Inviisible parent body node for bobbing up and down
         const bodyNode = new ModelNode(gl);
-        bodyNode.setLocalTransform(LIBS.get_I4()); // This node will be animated
+        bodyNode.setLocalTransform(LIBS.get_I4());
         this.rootNode.addChild(bodyNode);
         this.animatedNodes.bodyNode = bodyNode; // Save for animation
 
-        // NEW: Create the visible body geometry as a child of the bobber
+        // Body geometry as the visible part of the body (child of bodyNode)
         const bodyGeometry = new ModelNode(gl, Geometry.generateSphere(0.8, 0.9, 0.8, 20, 20, C.BODY));
-        bodyGeometry.setLocalTransform(LIBS.get_I4()); // This node will be scaled
-        bodyNode.addChild(bodyGeometry); // Add to the bobber
-        this.animatedNodes.bodyGeometry = bodyGeometry; // Save for animation
+        bodyGeometry.setLocalTransform(LIBS.get_I4());
+        bodyNode.addChild(bodyGeometry);
+        this.animatedNodes.bodyGeometry = bodyGeometry;
 
         // --- Body Decorations (Children of the Body) ---
-        // (Assuming 'bodyNode' is your main body ModelNode)
-
-        // 1. Left White Circle
+        // 2a. Left White Circle
         const leftDecoCircle = new ModelNode(gl, Geometry.generateCircle(0.2, 20, C.WHITE));
-        // We use the original function to get the correct transformation matrix
         const leftDecoTransform = createOrientedTransform(0.8, 1.1, 0.78, -0.3, 0.25);
         leftDecoCircle.setLocalTransform(leftDecoTransform);
         bodyGeometry.addChild(leftDecoCircle);
 
-        // 2. Right White Circle
+        // 2b. Right White Circle
         const rightDecoCircle = new ModelNode(gl, Geometry.generateCircle(0.2, 20, C.WHITE));
         const rightDecoTransform = createOrientedTransform(0.8, 1.1, 0.78, 0.3, 0.25);
         rightDecoCircle.setLocalTransform(rightDecoTransform);
@@ -488,7 +466,7 @@ class Piplup {
 
         // 2. Head (Child of the Body)
         const headNode = new ModelNode(gl, Geometry.generateSphere(0.8, 0.8, 0.8, 20, 20, C.HEAD), headTexture);
-        const headTransform = createTransform(0, 1.5, 0); // Head is 1.5 units *above the body*
+        const headTransform = createTransform(0, 1.5, 0); // Head is 1.5 units above the body
         headNode.setLocalTransform(headTransform);
         bodyNode.addChild(headNode);
         this.animatedNodes.head = headNode;
@@ -541,71 +519,59 @@ class Piplup {
         LIBS.rotateZ(leftHandMatrix, LIBS.degToRad(-20));
         LIBS.rotateX(leftHandMatrix, LIBS.degToRad(-10));
         leftHandNode.setLocalTransform(leftHandMatrix);
-        this.baseTransforms.leftFlipper = leftHandMatrix; // NEW: Store base pose
+        this.baseTransforms.leftFlipper = leftHandMatrix;
         bodyNode.addChild(leftHandNode);
-        this.animatedNodes.leftFlipper = leftHandNode; // Save for animation
+        this.animatedNodes.leftFlipper = leftHandNode;
 
         const rightHandNode = new ModelNode(gl, Geometry.generateSphere(0.2, 0.7, 0.5, 15, 15, C.BODY));
         let rightHandMatrix = createTransform(0.8, 0.1, 0.1);
         LIBS.rotateZ(rightHandMatrix, LIBS.degToRad(20));
         LIBS.rotateX(rightHandMatrix, LIBS.degToRad(-10));
         rightHandNode.setLocalTransform(rightHandMatrix);
-        this.baseTransforms.rightFlipper = rightHandMatrix; // NEW: Store base pose
+        this.baseTransforms.rightFlipper = rightHandMatrix;
         bodyNode.addChild(rightHandNode);
-        this.animatedNodes.rightFlipper = rightHandNode; // MODIFIED: Corrected typo (was leftFlipper)
-
-        // ... (add right flipper as a child of bodyNode) ...
-
-        // --- Cape and Back Details (Children of the Body) ---
-        // (Assuming 'bodyNode' is the ModelNode for the Piplup's body)
-
-        // --- Legs and Feet (Children of Body) ---
-
-        // (Assuming 'bodyNode' is your main body ModelNode)
-        // (And C.FEET and C.BODY are defined in your colors)
+        this.animatedNodes.rightFlipper = rightHandNode;
 
         // 1. Left Leg
         const leftLegNode = new ModelNode(gl, Geometry.generateSphere(0.25, 0.5, 0.25, 10, 10, C.BODY));
-        const leftLegTransform = createTransform(-0.4, -0.5, -0.1); // NEW: Capture transform
+        const leftLegTransform = createTransform(-0.4, -0.5, -0.1);
         leftLegNode.setLocalTransform(leftLegTransform);
-        this.baseTransforms.leftLeg = leftLegTransform; // NEW: Store base pose
+        this.baseTransforms.leftLeg = leftLegTransform;
         bodyNode.addChild(leftLegNode);
-        this.animatedNodes.leftLeg = leftLegNode; // NEW: Save for animation
+        this.animatedNodes.leftLeg = leftLegNode;
 
 
         // 2. Left Foot (as a child of the Left Leg)
         const leftFootNode = new ModelNode(gl, Geometry.generateSphere(0.25, 0.15, 0.45, 10, 10, C.FEET));
-        // The transform is (0, -0.5, 0.2) *relative* to the leg's position
-        leftFootNode.setLocalTransform(createTransform(0, -0.5, 0.3));
-        leftLegNode.addChild(leftFootNode); // <-- Add to leg, NOT body
+        leftFootNode.setLocalTransform(createTransform(0, -0.5, 0.3)); // Local transform relative to leg
+        leftLegNode.addChild(leftFootNode); // Add to leg
 
         // 3. Right Leg
         const rightLegNode = new ModelNode(gl, Geometry.generateSphere(0.25, 0.5, 0.25, 10, 10, C.BODY));
-        const rightLegTransform = createTransform(0.4, -0.5, -0.1); // NEW: Capture transform
+        const rightLegTransform = createTransform(0.4, -0.5, -0.1);
         rightLegNode.setLocalTransform(rightLegTransform);
-        this.baseTransforms.rightLeg = rightLegTransform; // NEW: Store base pose
+        this.baseTransforms.rightLeg = rightLegTransform;
         bodyNode.addChild(rightLegNode);
-        this.animatedNodes.rightLeg = rightLegNode; // NEW: Save for animation
+        this.animatedNodes.rightLeg = rightLegNode;
 
         // 4. Right Foot (as a child of the Right Leg)
         const rightFootNode = new ModelNode(gl, Geometry.generateSphere(0.25, 0.15, 0.45, 10, 10, C.FEET));
-        // The transform is (0, -0.5, 0.2) *relative* to the leg's position
-        rightFootNode.setLocalTransform(createTransform(0, -0.5, 0.3));
-        rightLegNode.addChild(rightFootNode); // <-- Add to leg, NOT body
+        rightFootNode.setLocalTransform(createTransform(0, -0.5, 0.3)); // Local transform relative to leg
+        rightLegNode.addChild(rightFootNode); // Add to leg
 
         // 1. The Spline Tube (Main Cape/Tail)
         const capeSplineNode = new ModelNode(gl, Geometry.generateTubeFromSpline(
             [
-                [0.0, 0.0, -0.5],   // Start point on the lower back
+                [0.0, 0.0, -0.5],
                 [0.0, 0.05, -1.5],
-                [0.0, -0.2, -1.3], // First curve point
-                [0.0, -0.4, -1.8],  // Second curve point
-                [0.0, -0.7, -1.5]   // End point, slightly flared out
+                [0.0, -0.2, -1.3],
+                [0.0, -0.4, -1.8],
+                [0.0, -0.7, -1.5]
             ],
-            100, // Segments
-            0.15, // Radius
-            20,   // Radial segments
-            [0.20, 0.38, 0.64] // Color
+            100,
+            0.15,
+            20,
+            [0.20, 0.38, 0.64],
         ));
         capeSplineNode.setLocalTransform(createTransform(0, 0, 0.5));
         bodyNode.addChild(capeSplineNode);
@@ -629,7 +595,6 @@ class Piplup {
         // 4. Neck Ring Sphere
         const capeNeckRing = new ModelNode(gl, Geometry.generateSphere(0.7, 0.12, 0.6, 20, 20, C.HEAD));
         let m_neckRing = createTransform(0, 0.8, 0);
-        // (Original rotations were commented out, so I've left them out)
         capeNeckRing.setLocalTransform(m_neckRing);
         bodyNode.addChild(capeNeckRing);
 
@@ -639,12 +604,9 @@ class Piplup {
         LIBS.rotateX(m_back, LIBS.degToRad(20));
         capeBack.setLocalTransform(m_back);
         bodyNode.addChild(capeBack);
-
-        // ... (Continue for all other parts, attaching them to either the body or head) ...
-
     }
 
-    // NEW: Function to update animations
+    // Function to update animations
     updateAnimation(time) {
         const speed = 1; // Controls the speed of the run
         const bobAmount = Math.abs(Math.sin(time * speed) * 0.5) * 0.2 - 0.05; // Bob up and down
@@ -670,78 +632,73 @@ class Piplup {
         LIBS.scaleZ(S_body, scaleXZ);
 
         // --- Apply Matrices ---
-        // MODIFIED: Apply Translation to the parent bobber
+        // Apply Translation to the parent bobber
         this.animatedNodes.bodyNode.setLocalTransform(T_body);
 
-        // MODIFIED: Apply Scale ONLY to the body geometry
+        // Apply Scale ONLY to the body geometry
         this.animatedNodes.bodyGeometry.setLocalTransform(S_body);
 
 
-        // 2. Left Flipper (Flaps up with top pivot)
-        // Create the animation matrix: M_anim = T(0.7) * R(angle) * T(-0.7)
+        // 2. Left Flipper
         const T_flipper_up = LIBS.get_I4();
-        LIBS.translateY(T_flipper_up, -0.6);
         LIBS.translateX(T_flipper_up, 0.5);
+        LIBS.translateY(T_flipper_up, -0.6);
 
         const R_flipper = LIBS.get_I4();
-        // MODIFIED: Changed from rotateX to rotateZ
         LIBS.rotateZ(R_flipper, swingAngle);
 
         const T_flipper_down = LIBS.get_I4();
-        LIBS.translateY(T_flipper_down, 0.6);
         LIBS.translateX(T_flipper_down, -0.5);
+        LIBS.translateY(T_flipper_down, 0.6);
 
-        // Combine them: M_anim = T_up * (R * T_down)
+
+        // M_anim = T_up * (R * T_down)
         let leftFlipperAnim = LIBS.multiply(R_flipper, T_flipper_down);
         leftFlipperAnim = LIBS.multiply(T_flipper_up, leftFlipperAnim);
 
-        // Apply animation to the base pose: M_final = M_base * M_anim
+        // Base: M_final = M_base * M_anim
         const leftFlipperFinal = LIBS.multiply(this.baseTransforms.leftFlipper, leftFlipperAnim);
         this.animatedNodes.leftFlipper.setLocalTransform(leftFlipperFinal);
 
 
-        // 3. Right Flipper (Flaps down with top pivot)
-// --- NEW: Create mirrored pivot matrices for the right flipper ---
-// Pivot point is at (x: 0.5, y: 0.6) relative to its center
+        // 3. Right Flipper
         const T_flipper_up_right = LIBS.get_I4();
         LIBS.translateY(T_flipper_up_right, -0.6);
         LIBS.translateX(T_flipper_up_right, -0.5); // Mirrored X
 
         const R_flipper_right = LIBS.get_I4();
-        LIBS.rotateZ(R_flipper_right, swingAngle + 0.8); // Note the negative angle
+        LIBS.rotateZ(R_flipper_right, swingAngle + 0.8);
 
         const T_flipper_down_right = LIBS.get_I4();
         LIBS.translateY(T_flipper_down_right, 0.6);
         LIBS.translateX(T_flipper_down_right, 0.5); // Mirrored X
 
-// --- MODIFIED: Use the new right-flipper matrices ---
-// Combine them: M_anim = T_up_right * (R_right * T_down_right)
+        // Use the right-flipper matrices
+        // M_anim = T_up_right * (R_right * T_down_right)
         let rightFlipperAnim = LIBS.multiply(R_flipper_right, T_flipper_down_right);
         rightFlipperAnim = LIBS.multiply(T_flipper_up_right, rightFlipperAnim);
 
-// Apply animation to the base pose: M_final = M_base * M_anim
+        // Base: M_final = M_base * M_anim
         const rightFlipperFinal = LIBS.multiply(this.baseTransforms.rightFlipper, rightFlipperAnim);
         this.animatedNodes.rightFlipper.setLocalTransform(rightFlipperFinal);
 
-        // 4. Left Leg (Swings backward, opposite of left flipper)
+        // 4. Left Leg (Swings backward)
         const leftLegAnim = LIBS.get_I4();
         LIBS.rotateX(leftLegAnim, -legSwingAngle);
         const leftLegFinal = LIBS.multiply(leftLegAnim, this.baseTransforms.leftLeg);
         this.animatedNodes.leftLeg.setLocalTransform(leftLegFinal);
 
-        // 5. Right Leg (Swings forward, opposite of right flipper)
+        // 5. Right Leg (Swings forward)
         const rightLegAnim = LIBS.get_I4();
         LIBS.rotateX(rightLegAnim, legSwingAngle);
         const rightLegFinal = LIBS.multiply(rightLegAnim, this.baseTransforms.rightLeg);
         this.animatedNodes.rightLeg.setLocalTransform(rightLegFinal);
 
 
-// 6. Beak "Talking" Animation
-        // Creates a small "chirp" animation.
-        // (Math.sin + 1)/2 gives a 0-to-1 range. * 0.2 gives a max 0.2 rad angle.
+        // 6. Beak Animation
         const beakAngle = (Math.sin(time * speed * 1.5 + 2) + 1) * 0.5 * 0.2;
 
-        // Define the pivot matrices. Hinge is at z = -0.3
+        // Pivot hinge di z = -0.3 relatif dari beak
         const T_beak_hinge = LIBS.get_I4();
         LIBS.translateZ(T_beak_hinge, 0.7); // 1. Move hinge to origin
 
