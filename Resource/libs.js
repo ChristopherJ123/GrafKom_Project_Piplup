@@ -139,7 +139,7 @@ var Libs = {
         b10 = x * y * t - z * s; b11 = y * y * t + c;     b12 = z * y * t + x * s;
         b20 = x * z * t + y * s; b21 = y * z * t - x * s; b22 = z * z * t + c;
 
-        // Lakukan perkalian: m = m * rotation
+        // perkalian: m = m * rotation
         m[0] = a00 * b00 + a10 * b01 + a20 * b02;
         m[1] = a01 * b00 + a11 * b01 + a21 * b02;
         m[2] = a02 * b00 + a12 * b01 + a22 * b02;

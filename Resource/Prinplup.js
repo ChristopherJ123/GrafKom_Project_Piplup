@@ -9,11 +9,9 @@ export class Prinplup {
 
         this.rootNode = new ModelNode(gl);
 
-        // MODIFIED: Set the static Y-offset here
-        this.modelMatrix = LIBS.get_I4();
+        this.modelMatrix = LIBS.get_I4(); // Y offset
         // LIBS.translateY(this.modelMatrix, 2.5); // Prinplup's base offset
 
-        // Store references to nodes that need animation
         this.animatedNodes = {
             breathingNode: null,
             leftLegGroup: null, 
@@ -24,7 +22,6 @@ export class Prinplup {
             breathEffects: []
         };
 
-        // NEW: Add a place to store base poses
         this.baseTransforms = {
             leftHand: LIBS.get_I4(),
             rightHand: LIBS.get_I4(),
@@ -78,15 +75,12 @@ export class Prinplup {
             [0.24, -1.22, 0], [0.04, -1.23, 0], [0.0, -1.24, 0],
         ];
 
-        // --- Build the Hierarchy ---
-
-        // 1. Create the invisible "breathing" node.
-        // All parts that move up/down together will be a child of this.
+        // 1. breathing node
         const breathingNode = new ModelNode(gl);
         this.rootNode.addChild(breathingNode);
         this.animatedNodes.breathingNode = breathingNode;
 
-        // 2. Create and add all parts as children of 'breathingNode'
+        // 2. add all parts as children of 'breathingNode'
 
         // Body
         const bodyNode = new ModelNode(gl, Geometry.generateLathe(body_profile, 30, C.BODY), headTexture);
@@ -133,7 +127,7 @@ export class Prinplup {
         })());
         breathingNode.addChild(disk2);
 
-        // Eyes (These are animated, so we save them)
+        // Eyes (animated)
         const leftEye1 = new ModelNode(gl, Geometry.generateAngryEye(0.15, 0.2, 0.1, 10, 10, 130, C.WHITE));
         leftEye1.setBaseTransform((() => {
             let m = createTransform(-0.3, 1.9, 0.4);
@@ -217,21 +211,20 @@ export class Prinplup {
         breathingNode.addChild(beakCone);
 
         const breathEffectNode = new ModelNode(gl, Geometry.generateSphere(0.02, 0.02, 0.03, 10, 10, C.WHITE));
-        // This transform is RELATIVE TO THE BEAK NODE
+        // transform RELATIVE TO THE BEAK NODE
         breathEffectNode.setBaseTransform(createTransform(0, 0.04, 0.06));
-        breathEffectNode.alpha = 0.0; // Start invisible
-        beak.addChild(breathEffectNode); // Attach to the main beak part
+        breathEffectNode.alpha = 0.0;
+        beak.addChild(breathEffectNode); // attach to the main beak part
         this.animatedNodes.breathEffects.push(breathEffectNode);
         const breathEffectNode2 = new ModelNode(gl, Geometry.generateSphere(0.03, 0.03, 0.04, 10, 10, C.WHITE));
-        // This transform is RELATIVE TO THE BEAK NODE
+        // transform RELATIVE TO THE BEAK NODE
         breathEffectNode2.setBaseTransform(createTransform(0, 0.08, 0.1));
-        breathEffectNode2.alpha = 0.0; // Start invisible
-        beak.addChild(breathEffectNode2); // Attach to the main beak part
+        breathEffectNode2.alpha = 0.0;
+        beak.addChild(breathEffectNode2); // attach to the main beak part
         this.animatedNodes.breathEffects.push(breathEffectNode2);
 
         // Hands
         const leftHand = new ModelNode(gl, Geometry.generateSphere(0.2, 1.5, 0.5, 15, 15, C.TAIL), handTexture);
-        // NEW: Store the matrix and the node
         const leftHandMatrix = (() => {
             let m = createTransform(-1.2, 0.42, 0.1);
             LIBS.rotateZ(m, LIBS.degToRad(-40));
@@ -244,7 +237,6 @@ export class Prinplup {
         breathingNode.addChild(leftHand);
 
         const rightHand = new ModelNode(gl, Geometry.generateSphere(0.2, 1.5, 0.5, 15, 15, C.TAIL), handTexture);
-        // NEW: Store the matrix and the node
         const rightHandMatrix = (() => {
             let m = createTransform(1.2, 0.42, 0.1);
             LIBS.rotateZ(m, LIBS.degToRad(40));
@@ -256,37 +248,33 @@ export class Prinplup {
         this.animatedNodes.rightHand = rightHand;
         breathingNode.addChild(rightHand);
 
-        // === GRUP KAKI KIRI ===
+        // GRUP KAKI KIRI
         const leftLegGroup = new ModelNode(gl); 
-        const leftLegGroupBaseMatrix = createTransform(-0.65, -1.2, 0.1); // Posisi global grup kaki
+        const leftLegGroupBaseMatrix = createTransform(-0.65, -1.2, 0.1);
         leftLegGroup.setBaseTransform(leftLegGroupBaseMatrix);
-        this.rootNode.addChild(leftLegGroup); // <<< TAMBAHKAN KE ROOTNODE (bukan breathingNode)
-        this.animatedNodes.leftLegGroup = leftLegGroup; // Simpan referensi
-        this.baseTransforms.leftLegGroup = leftLegGroupBaseMatrix; // Simpan base matrix
+        this.rootNode.addChild(leftLegGroup);
+        this.animatedNodes.leftLegGroup = leftLegGroup;
+        this.baseTransforms.leftLegGroup = leftLegGroupBaseMatrix;
 
         // Tungkai Kiri (Anak dari leftLegGroup)
         const leftLeg = new ModelNode(gl, Geometry.generateSphere(0.3, 0.8, 0.4, 10, 10, C.BODY));
-        leftLeg.setBaseTransform(createTransform(0, 2.6, 0)); // Posisi 0,0,0 relatif ke grup
+        leftLeg.setBaseTransform(createTransform(0, 2.6, 0)); // posisi 0,0,0 relatif ke grup
         leftLegGroup.addChild(leftLeg); 
 
-        // Telapak Kaki Kiri 1 (Anak dari leftLegGroup)
-        // Posisi LOKAL relatif ke grup kaki (-0.65, -1.2, 0.1)
-        // Global: (-0.65, -1.9, 0.24) -> Lokal: (0, -0.7, 0.14)
         const leftFoot1 = new ModelNode(gl, Geometry.generateSphere(0.3, 0.12, 0.35, 10, 10, C.FEET));
         leftFoot1.setBaseTransform(createTransform(0, 1.9, 0.1)); 
         leftLegGroup.addChild(leftFoot1);
 
         // Telapak Kaki Kiri 2 (Anak dari leftLegGroup)
-        // Global: (-0.65, -2.0, 0.4) -> Lokal: (0, -0.8, 0.3)
         const leftFoot2 = new ModelNode(gl, Geometry.generateSphere(0.3, 0.1, 0.5, 10, 10, C.FEET));
         leftFoot2.setBaseTransform(createTransform(0, 1.8, 0.25));
         leftLegGroup.addChild(leftFoot2);
 
         // === GRUP KAKI KANAN ===
         const rightLegGroup = new ModelNode(gl);
-        const rightLegGroupBaseMatrix = createTransform(0.65, -1.2, 0.1); // Posisi global grup kaki
+        const rightLegGroupBaseMatrix = createTransform(0.65, -1.2, 0.1); // posisi global grup kaki
         rightLegGroup.setBaseTransform(rightLegGroupBaseMatrix);
-        this.rootNode.addChild(rightLegGroup); // <<< TAMBAHKAN KE ROOTNODE
+        this.rootNode.addChild(rightLegGroup);
         this.animatedNodes.rightLegGroup = rightLegGroup;
         this.baseTransforms.rightLegGroup = rightLegGroupBaseMatrix;
 
@@ -296,13 +284,11 @@ export class Prinplup {
         rightLegGroup.addChild(rightLeg);
 
         // Telapak Kaki Kanan 1 (Anak dari rightLegGroup)
-        // Global: (0.65, -1.9, 0.24) -> Lokal: (0, -0.7, 0.14)
         const rightFoot1 = new ModelNode(gl, Geometry.generateSphere(0.3, 0.12, 0.35, 10, 10, C.FEET));
         rightFoot1.setBaseTransform(createTransform(0, 1.9, 0.1));
         rightLegGroup.addChild(rightFoot1);
 
         // Telapak Kaki Kanan 2 (Anak dari rightLegGroup)
-        // Global: (0.65, -2.0, 0.4) -> Lokal: (0, -0.8, 0.3)
         const rightFoot2 = new ModelNode(gl, Geometry.generateSphere(0.3, 0.1, 0.6, 10, 10, C.FEET));
         rightFoot2.setBaseTransform(createTransform(0, 1.8, 0.25));
         rightLegGroup.addChild(rightFoot2);
@@ -316,7 +302,6 @@ export class Prinplup {
         breathingNode.addChild(tail);
     }
 
-    // NEW: Central animation update function
     updateAnimation(animValues) {
         // 1. Apply 'bodyBreathe' Y-translation to the main breathing node
         const T_breath = LIBS.get_I4();
@@ -350,12 +335,8 @@ export class Prinplup {
         const bodySpinAxis = [0.2, 2.9, 0.0];
         const timeInSeconds = performance.now() * 0.001;
         const bodySpinAngle = timeInSeconds * bodySpinSpeed;
-
-        // Buat matriks rotasi baru
         const R_bodySpin = LIBS.get_I4();
         LIBS.rotateAroundAxis(R_bodySpin, bodySpinAxis, bodySpinAngle); 
-
-        // Simpan matriks rotasi ini untuk digunakan di fungsi draw
         this.bodySpinMatrix = R_bodySpin;
 
         // 3. NEW: Apply 'flapAngle' Z-rotation to hands
@@ -363,7 +344,7 @@ export class Prinplup {
         const pivotY = 1.5; // From the hand's geometry radius
         const pivotX = 0.7;
 
-        // Create pivot matrices
+
         let T_up = LIBS.get_I4();
         LIBS.translateY(T_up, -pivotY);
         LIBS.translateX(T_up, pivotX);
@@ -375,16 +356,15 @@ export class Prinplup {
         const R_left = LIBS.get_I4();
         LIBS.rotateZ(R_left, flapAngle);
 
-        // Combine for animation matrix: M_anim = T_up * R_z * T_down
+        // combine for animation matrix: M_anim = T_up * R_z * T_down
         let leftAnim = LIBS.multiply(R_left, T_down);
         leftAnim = LIBS.multiply(T_up, leftAnim);
 
-        // Combine with base: M_final = M_base * M_anim
+        // combine with base: M_final = M_base * M_anim
         const leftFinal = LIBS.multiply(this.baseTransforms.leftHand, leftAnim);
         this.animatedNodes.leftHand.setLocalTransform(leftFinal);
 
         // --- Right Hand ---
-        // Create pivot matrices
         T_up = LIBS.get_I4();
         LIBS.translateY(T_up, -pivotY);
         LIBS.translateX(T_up, -pivotX);
@@ -393,31 +373,27 @@ export class Prinplup {
         LIBS.translateX(T_down, pivotX);
 
         const R_right = LIBS.get_I4();
-        LIBS.rotateZ(R_right, -flapAngle); // Opposite direction
+        LIBS.rotateZ(R_right, -flapAngle);
 
-        // Combine for animation matrix: M_anim = T_up * R_z * T_down
+        // combine for animation matrix: M_anim = T_up * R_z * T_down
         let rightAnim = LIBS.multiply(R_right, T_down);
         rightAnim = LIBS.multiply(T_up, rightAnim);
 
-        // Combine with base: M_final = M_base * M_anim
+        // combine with base: M_final = M_base * M_anim
         const rightFinal = LIBS.multiply(this.baseTransforms.rightHand, rightAnim);
         this.animatedNodes.rightHand.setLocalTransform(rightFinal);
 
         const breathAlpha = animValues.breathAlpha || 0.0;
         const breathScale = animValues.breathScale || 1.0;
 
-        // Buat matriks skala sekali saja
         const S_breath = LIBS.get_I4();
         LIBS.scale(S_breath, breathScale);
 
-        // Loop melalui setiap node efek napas di array
         this.animatedNodes.breathEffects.forEach(breathNode => {
             if (breathNode) {
-                // Update Alpha
                 breathNode.alpha = breathAlpha;
 
-                // Gabungkan base transform node DENGAN matriks skala
-                // M_local = M_base * M_animasi_skala
+                // Gabungkan base transform node DENGAN matriks skala: M_local = M_base * M_animasi_skala
                 const finalBreathMatrix = LIBS.multiply(breathNode.baseMatrix, S_breath);
                 breathNode.setLocalTransform(finalBreathMatrix);
             }
@@ -425,28 +401,21 @@ export class Prinplup {
     }
 
     draw(shader, parentMatrix, isAwake) {
-        // Mulai dengan rotasi mouse
         let combinedRotation = this.modelMatrix; 
 
-        // Jika matriks animasi badan ada, kalikan SETELAH rotasi mouse
         if (this.bodySpinMatrix) {
-            // Urutan: MouseRotation * BodySpinAnimation
+            // MouseRotation * BodySpinAnimation
             combinedRotation = LIBS.multiply(this.bodySpinMatrix, combinedRotation);
         }
 
         if (isAwake) {
-            // Gabungkan matriks induk (lingkungan) dengan matriks rotasi gabungan
             const finalParentMatrix = LIBS.multiply(parentMatrix, this.modelMatrix);
-            // Update all world matrices starting from the root
             this.rootNode.updateWorldMatrix(finalParentMatrix);
 
         } else {
-            // Gabungkan matriks induk (lingkungan) dengan matriks rotasi gabungan
             const finalParentMatrix = LIBS.multiply(parentMatrix, combinedRotation);
-            // Update all world matrices starting from the root
             this.rootNode.updateWorldMatrix(finalParentMatrix);
         }
-        // Start the recursive draw
         this.rootNode.draw(shader, isAwake);
 
     }

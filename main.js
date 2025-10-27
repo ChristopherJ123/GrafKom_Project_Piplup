@@ -457,7 +457,7 @@ class Renderer {
             this.piplup.draw(this.shader, piplupParentMatrix);
 
             const prinplupParentMatrix = LIBS.multiply(this.prinplupModelMatrix, iceParentMatrix);
-            this.Prinplup.draw(this.shader, prinplupParentMatrix, false); // false: dance. better implement with sound
+            this.Prinplup.draw(this.shader, prinplupParentMatrix, 1); // false: dance. better implement with sound
 
             this.empoleon.updateAnimation({
                 body: Math.sin(time) * 0.1,
