@@ -310,9 +310,9 @@ export class Piplup {
         LIBS.translateY(T_flipper_up, -0.6);
         LIBS.translateX(T_flipper_up, 0.5);
 
-        const R_flipper = LIBS.get_I4();
-        // MODIFIED: Changed from rotateX to rotateZ
-        LIBS.rotateZ(R_flipper, swingAngle);
+        let R_flipper = LIBS.get_I4();
+        let swingAxis = [0, 0, 1.0];
+        LIBS.rotateAroundAxis(R_flipper, swingAxis, swingAngle);
 
         const T_flipper_down = LIBS.get_I4();
         LIBS.translateY(T_flipper_down, 0.6);
@@ -335,7 +335,8 @@ export class Piplup {
         LIBS.translateX(T_flipper_up_right, -0.5); // Mirrored X
 
         const R_flipper_right = LIBS.get_I4();
-        LIBS.rotateZ(R_flipper_right, swingAngle + 0.8); // Note the negative angle
+        swingAxis = [0, 0, 1.0];
+        LIBS.rotateAroundAxis(R_flipper_right, swingAxis, swingAngle + 0.8);
 
         const T_flipper_down_right = LIBS.get_I4();
         LIBS.translateY(T_flipper_down_right, 0.6);

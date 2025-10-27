@@ -608,7 +608,7 @@ class Piplup {
 
     // Function to update animations
     updateAnimation(time) {
-        const speed = 1; // Controls the speed of the run
+        const speed = 2; // Controls the speed of the run
         const bobAmount = Math.abs(Math.sin(time * speed) * 0.5) * 0.2 - 0.05; // Bob up and down
         const swingAngle = Math.sin(time * speed) * 0.3 - 0.4; // Swing angle in radians (~40 deg)
         const legSwingAngle = Math.sin(time * speed) * 0.5; // Legs swing a bit less
@@ -639,13 +639,14 @@ class Piplup {
         this.animatedNodes.bodyGeometry.setLocalTransform(S_body);
 
 
-        // 2. Left Flipper
+        // 2. Left Flipper (Flaps up with top pivot)
         const T_flipper_up = LIBS.get_I4();
         LIBS.translateX(T_flipper_up, 0.5);
         LIBS.translateY(T_flipper_up, -0.6);
 
-        const R_flipper = LIBS.get_I4();
-        LIBS.rotateZ(R_flipper, swingAngle);
+        let R_flipper = LIBS.get_I4();
+        let swingAxis = [0, 0, 1.0];
+        LIBS.rotateAroundAxis(R_flipper, swingAxis, swingAngle);
 
         const T_flipper_down = LIBS.get_I4();
         LIBS.translateX(T_flipper_down, -0.5);
@@ -667,7 +668,8 @@ class Piplup {
         LIBS.translateX(T_flipper_up_right, -0.5); // Mirrored X
 
         const R_flipper_right = LIBS.get_I4();
-        LIBS.rotateZ(R_flipper_right, swingAngle + 0.8);
+        swingAxis = [0, 0, 1.0];
+        LIBS.rotateAroundAxis(R_flipper_right, swingAxis, swingAngle + 0.8);
 
         const T_flipper_down_right = LIBS.get_I4();
         LIBS.translateY(T_flipper_down_right, 0.6);
