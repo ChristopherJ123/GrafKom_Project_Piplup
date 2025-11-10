@@ -40,14 +40,15 @@ class Renderer {
         LIBS.scale(this.piplupModelMatrix, 0.9); // Make it 90% of the size
 
         this.prinplupModelMatrix = LIBS.get_I4();
-        LIBS.translateX(this.prinplupModelMatrix, -1.0);
+        LIBS.translateX(this.prinplupModelMatrix, -3.0);
         LIBS.translateY(this.prinplupModelMatrix, -0.18);
         LIBS.scale(this.prinplupModelMatrix, 1.2);
 
         // Static matrix for Empoleon
+        this.empoleonCenter = [6.0, -0.4, 0.0];
         this.empoleonModelMatrix = LIBS.get_I4();
-        LIBS.translateX(this.empoleonModelMatrix, 6.0); // Offset 6 units to the right
-        LIBS.translateY(this.empoleonModelMatrix, -0.4);
+        LIBS.translateX(this.empoleonModelMatrix, this.empoleonCenter[0]); // Offset 6 units to the right
+        LIBS.translateY(this.empoleonModelMatrix, this.empoleonCenter[1]);
         LIBS.scale(this.empoleonModelMatrix, 1.9);
         
         this.viewMatrix = LIBS.get_I4();
@@ -399,9 +400,48 @@ class Renderer {
 
             // 1. Update all animations
             this.environment.updateAnimation();
-            this.piplup.updateAnimation(timeInSeconds * 7); // ++; faster
+            this.piplup.updateAnimation(timeInSeconds * 10); // ++; faster
             this.Prinplup.updateAnimation(animationValues);
             this.empoleon.updateAnimation(animationValues);
+
+            // 1. Define circle parameters
+            const circleRadius = 4.5; // How far Piplup is from Empoleon
+            const circleSpeed = 1;  // How fast Piplup circles (in radians per second)
+            const circleAngle = timeInSeconds * circleSpeed;
+
+            // 2. Calculate Piplup's new X and Z position based on the circle
+            const piplupX = this.empoleonCenter[0] + circleRadius * Math.cos(circleAngle);
+            const piplupZ = this.empoleonCenter[2] + circleRadius * Math.sin(circleAngle);
+            // Use a fixed Y level (e.g., Empoleon's Y level)
+            const piplupY = this.empoleonCenter[1] + 0.4; // Adjust Y offset as needed
+
+            // 3. Calculate rotation to make Piplup face its walking direction
+            // The velocity vector is (dx/dt, dz/dt)
+            // dx/dt = -circleRadius * Math.sin(circleAngle) * circleSpeed
+            // dz/dt =  circleRadius * Math.cos(circleAngle) * circleSpeed
+            // The angle of the tangent is atan2(dz, dx)
+            const tangentAngle = Math.atan2(
+                circleRadius * Math.cos(circleAngle),
+                -circleRadius * Math.sin(circleAngle)
+            );
+
+            // 4. Create Piplup's new transformation matrix from scratch
+            this.piplupModelMatrix = LIBS.get_I4(); // Reset to identity matrix
+
+            // 5. Apply transformations (Order: Scale, then Rotate, then Translate)
+
+            // a) Scale (same as you had in the constructor)
+            LIBS.scale(this.piplupModelMatrix, 0.9);
+
+            // b) Rotate Piplup to face the tangent direction
+            // We subtract PI/2 because the model's "front" is +Z,
+            // but the tangentAngle is 0 when moving +X.
+            LIBS.rotateY(this.piplupModelMatrix, -tangentAngle + (Math.PI / 2.0));
+
+            // c) Translate Piplup to its new position on the circle
+            LIBS.translateX(this.piplupModelMatrix, piplupX);
+            LIBS.translateY(this.piplupModelMatrix, piplupY);
+            LIBS.translateZ(this.piplupModelMatrix, piplupZ);
 
 
             gl.viewport(0, 0, this.canvas.width, this.canvas.height);
@@ -457,7 +497,8 @@ class Renderer {
             this.piplup.draw(this.shader, piplupParentMatrix);
 
             const prinplupParentMatrix = LIBS.multiply(this.prinplupModelMatrix, iceParentMatrix);
-            this.Prinplup.draw(this.shader, prinplupParentMatrix, 1); // false: dance. better implement with sound
+            this.Prinplup.draw(this.shader, prinplupParentMatrix, 1
+            ); // false: dance. better implement with sound
 
             this.empoleon.updateAnimation({
                 body: Math.sin(time) * 0.1,
