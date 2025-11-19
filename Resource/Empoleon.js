@@ -315,9 +315,9 @@ export class Empoleon {
                 parentName: 'breathingNode', 
                 geom: Geometry.generateSphere(0.2, 1.5, 0.5, 15, 15, C.EMPO_BASE),
                 trans: (() => {
-                    let m = createTransform(-1.2, 0.25, 0.2);
+                    let m = createTransform(-1.2, 1.1, 0.9);
                     LIBS.rotateZ(m, LIBS.degToRad(-30));
-                    LIBS.rotateX(m, LIBS.degToRad(-10));
+                    LIBS.rotateX(m, LIBS.degToRad(-90));
                     return m;
                 })()
             },
@@ -452,6 +452,18 @@ export class Empoleon {
                 let m = createTransform(-0.22, -0.8, -0.10);
                 LIBS.rotateZ(m, LIBS.degToRad(120)); return m; })()},
 
+            { 
+                name: 'fish',
+                parentName: 'leftHand',
+                geom: Geometry.generateSphere(0.25, 0.6, 0.25, 20, 20, C.HEAD), 
+                trans: (() => {
+                    let m = createTransform(0.3, -0.75, 0.30); // Posisi ikan relatif ke tangan
+                    LIBS.rotateX(m, LIBS.degToRad(-90))
+                    LIBS.rotateZ(m, LIBS.degToRad(45));      // Rotasi agar posisi ikan natural
+                    return m;
+                })()
+            },
+
 
             // Legs
             { geom: Geometry.generateHalfHyperboloid(0.25, 0.5, 0.25, 20, 20, C.EMPO_LOWER_BODY, 0, 1.3), trans: (() => {
@@ -475,6 +487,7 @@ export class Empoleon {
             { geom: Geometry.generateSphere(0.3, 0.12, 0.35, 10, 10, C.FEET), trans: createTransform(0.55, -1.9, 0.24), animationType: 'none'},
             { geom: Geometry.generateSphere(0.3, 0.1, 0.5, 10, 10, C.FEET), trans: createTransform(0.55, -2, 0.4), animationType: 'none'},
 
+            
         ];
 
         // --- HIERARCHY BUILDING (using two-pass approach like Prinplup) ---
@@ -504,6 +517,16 @@ export class Empoleon {
                 this.animatedNodes.tailNode = node;
                 this.baseTransforms.tail = def.trans;
             }
+            else if (def.name === 'fish') {
+                const fishTexture = this.renderer.loadTexture("Resource/fish.png");
+                const fishNode = new ModelNode(gl, def.geom, fishTexture);
+                fishNode.setLocalTransform(def.trans);
+
+                this.animatedNodes.fish = fishNode;
+                this.baseTransforms.fish = def.trans;
+                nodeMap[def.name] = fishNode;
+            }
+
             // Add other nodes to animatedNodes if needed
         });
 
