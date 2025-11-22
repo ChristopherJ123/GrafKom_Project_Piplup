@@ -29,3 +29,10 @@ get_projection
 ### Penilaian Project UAS
 - Three JS
 - lighting, camera, material
+
+const chatBubble = new ModelNode(gl, Geometry.generateSphere(0.02, 0.02, 0.03, 10, 10, C.WHITE));
+// transform RELATIVE TO THE BEAK NODE
+chatBubble.setBaseTransform(createTransform(0, 0.04, 0.06));
+chatBubble.alpha = 0.0;
+beak.addChild(chatBubble); // attach to the main beak part
+this.animatedNodes.breathEffects.push(chatBubble);

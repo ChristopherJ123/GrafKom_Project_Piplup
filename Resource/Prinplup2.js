@@ -2,7 +2,7 @@ import { Geometry } from "./Geometries.js";
 import { LIBS } from "./Libs.js";
 import { ModelNode } from "./ModelNode.js";
 
-export class Prinplup {
+export class Prinplup2 {
     constructor(gl, renderer) {
         this.gl = gl;
         this.renderer = renderer;
@@ -128,7 +128,7 @@ export class Prinplup {
         breathingNode.addChild(disk2);
 
         // Eyes (animated)
-        const leftEye1 = new ModelNode(gl, Geometry.generateAngryEye(0.15, 0.2, 0.1, 10, 10, 130, C.WHITE));
+        const leftEye1 = new ModelNode(gl, Geometry.generateAngryEye(0.15, 0.2, 0.1, 10, 10, 130, C.BODY));
         leftEye1.setBaseTransform((() => {
             let m = createTransform(-0.3, 1.9, 0.4);
             LIBS.rotateZ(m, LIBS.degToRad(330));
@@ -137,31 +137,8 @@ export class Prinplup {
         breathingNode.addChild(leftEye1);
         this.animatedNodes.eyeNodes.push(leftEye1);
 
-        const leftEye2 = new ModelNode(gl, Geometry.generateAngryEye(0.1, 0.15, 0.12, 10, 10, 130, C.HEAD));
-        leftEye2.setBaseTransform((() => {
-            let m = createTransform(-0.33, 1.9, 0.42);
-            LIBS.rotateZ(m, LIBS.degToRad(330));
-            return m;
-        }) ());
-        breathingNode.addChild(leftEye2);
-        this.animatedNodes.eyeNodes.push(leftEye2);
-
-        const leftEye3 = new ModelNode(gl, Geometry.generateAngryEye(0.07, 0.12, 0.12, 10, 10, 130, C.BLACK));
-        leftEye3.setBaseTransform((() => {
-            let m = createTransform(-0.3, 1.9, 0.45);
-            LIBS.rotateZ(m, LIBS.degToRad(330));
-            return m;
-        }) ());
-        breathingNode.addChild(leftEye3);
-        this.animatedNodes.eyeNodes.push(leftEye3);
-
-        const leftEye4 = new ModelNode(gl, Geometry.generateSphere(0.03, 0.03, 0.07, 10, 10, C.WHITE));
-        leftEye4.setBaseTransform(createTransform(-0.3, 1.93, 0.52));
-        breathingNode.addChild(leftEye4);
-        this.animatedNodes.eyeNodes.push(leftEye4);
-
         // Right Eye
-        const rightEye1 = new ModelNode(gl, Geometry.generateAngryEye(0.15, 0.2, 0.1, 10, 10, 130, C.WHITE));
+        const rightEye1 = new ModelNode(gl, Geometry.generateAngryEye(0.15, 0.2, 0.1, 10, 10, 130, C.BODY));
         rightEye1.setBaseTransform((() => {
             let m = createTransform(0.3, 1.9, 0.4);
             LIBS.rotateZ(m, LIBS.degToRad(30));
@@ -169,29 +146,6 @@ export class Prinplup {
         }) ());
         breathingNode.addChild(rightEye1);
         this.animatedNodes.eyeNodes.push(rightEye1);
-
-        const rightEye2 = new ModelNode(gl, Geometry.generateAngryEye(0.1, 0.15, 0.12, 10, 10, 130, C.HEAD));
-        rightEye2.setBaseTransform((() => {
-            let m = createTransform(0.33, 1.9, 0.42);
-            LIBS.rotateZ(m, LIBS.degToRad(30));
-            return m;
-        }) ());
-        breathingNode.addChild(rightEye2);
-        this.animatedNodes.eyeNodes.push(rightEye2);
-
-        const rightEye3 = new ModelNode(gl, Geometry.generateAngryEye(0.07, 0.12, 0.12, 10, 10, 130, C.BLACK));
-        rightEye3.setBaseTransform((() => {
-            let m = createTransform(0.3, 1.9, 0.45);
-            LIBS.rotateZ(m, LIBS.degToRad(30));
-            return m;
-        }) ());
-        breathingNode.addChild(rightEye3);
-        this.animatedNodes.eyeNodes.push(rightEye3);
-
-        const rightEye4 = new ModelNode(gl, Geometry.generateSphere(0.03, 0.03, 0.07, 10, 10, C.WHITE));
-        rightEye4.setBaseTransform(createTransform(0.3, 1.93, 0.52));
-        breathingNode.addChild(rightEye4);
-        this.animatedNodes.eyeNodes.push(rightEye4);
 
         // Beak
         const beak = new ModelNode(gl, Geometry.generateBeak(0.22, 0.35, 0.55, 20, C.BEAK));
@@ -338,7 +292,7 @@ export class Prinplup {
 
         // TOGGLE dance: Kalkulasi Rotasi Sumbu Sembarang untuk Seluruh Badan
         const bodySpinSpeed = 1.0; 
-        const bodySpinAxis = [0.0, 0.5, 0.0];
+        const bodySpinAxis = [0.0, 1.0, 0.0];
         const timeInSeconds = performance.now() * 0.001;
         const bodySpinAngle = timeInSeconds * bodySpinSpeed;
         const R_bodySpin = LIBS.get_I4();

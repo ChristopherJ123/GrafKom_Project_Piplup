@@ -1,9 +1,11 @@
 import { Piplup } from "./Resource/Piplup.js";
 import { Prinplup } from "./Resource/Prinplup.js";
+import { Prinplup2 } from "./Resource/Prinplup2.js";
 import { Empoleon } from "./Resource/Empoleon.js";
 import { Environment } from "./Resource/Environment.js";
 import { Geometry } from "./Resource/Geometries.js";
 import { LIBS } from "./Resource/Libs.js";
+import { ModelNode } from "./Resource/ModelNode.js";
 
 class Renderer {
     constructor(canvasId) {
@@ -31,6 +33,7 @@ class Renderer {
         // Init objects
         this.piplup = new Piplup(this.gl, this);
         this.Prinplup = new Prinplup(this.gl, this);
+        this.Prinplup2 = new Prinplup2(this.gl, this);
         this.empoleon = new Empoleon(this.gl, this);
         this.environment = new Environment(this.gl, this);
 
@@ -40,9 +43,29 @@ class Renderer {
         LIBS.scale(this.piplupModelMatrix, 0.9); // Make it 90% of the size
 
         this.prinplupModelMatrix = LIBS.get_I4();
-        LIBS.translateX(this.prinplupModelMatrix, -3.0);
-        LIBS.translateY(this.prinplupModelMatrix, -0.18);
-        LIBS.scale(this.prinplupModelMatrix, 1.2);
+        LIBS.translateX(this.prinplupModelMatrix, -0.5);
+        LIBS.translateY(this.prinplupModelMatrix, 6.5);
+        LIBS.scale(this.prinplupModelMatrix, 0.3);
+
+        this.prinplup2ModelMatrix = LIBS.get_I4();
+        LIBS.translateX(this.prinplup2ModelMatrix, -3.0);
+        LIBS.translateY(this.prinplup2ModelMatrix, -0.18);
+        LIBS.scale(this.prinplup2ModelMatrix, 1.2);
+
+        this.chatBubbleNode = this.createChatBubble(1.8, 1.5, 1.5);
+        this.bubbleMatrix = LIBS.get_I4();
+        LIBS.translateX(this.bubbleMatrix, 0.2); 
+        LIBS.translateY(this.bubbleMatrix, 7.2);
+
+        this.chatBubbleNode2 = this.createChatBubble(0.3, 0.3, 0.3);
+        this.bubbleMatrix2 = LIBS.get_I4();
+        LIBS.translateX(this.bubbleMatrix2, -1.4); 
+        LIBS.translateY(this.bubbleMatrix2, 5.8);
+
+        this.chatBubbleNode3 = this.createChatBubble(0.2, 0.2, 0.2);
+        this.bubbleMatrix3 = LIBS.get_I4();
+        LIBS.translateX(this.bubbleMatrix3, -1.8); 
+        LIBS.translateY(this.bubbleMatrix3, 5.2);
 
         // Static matrix for Empoleon
         this.empoleonCenter = [6.0, -0.4, 0.0];
@@ -54,7 +77,7 @@ class Renderer {
         this.viewMatrix = LIBS.get_I4();
         LIBS.translateZ(this.viewMatrix, -16);
         LIBS.translateY(this.viewMatrix, -5);
-        LIBS.translateX(this.viewMatrix, 1);
+        LIBS.translateX(this.viewMatrix, -0.8);
         this.projMatrix = LIBS.get_projection(45, this.canvas.width / this.canvas.height, 1, 100);
         this.animationTime = 0;
         this.keysPressed = {};
@@ -62,6 +85,16 @@ class Renderer {
         this.initInputHandlers();
         this.startRenderLoop();
     }
+
+    createChatBubble(a,b,c) {
+        const gl = this.gl;
+        const whiteColor = [1.0, 1.0, 1.0];
+        const bubbleGeometry = Geometry.generateSphere(a, b, c, 148, 148, whiteColor);
+        const bubbleNode = new ModelNode(gl, bubbleGeometry, null);
+        bubbleNode.alpha = 0.15;
+        return bubbleNode;
+    }
+    // woi
 
     createShaderProgram() {
         const gl = this.gl;
@@ -105,9 +138,12 @@ class Renderer {
             } else {
                 baseColor = vec4(vColor, 1.);
             }
-            vec4 litColor = vec4(baseColor.rgb * (0.9 + diffuse * 0.2), baseColor.a);
-            // ambient light (0.9) + diffuse light (0.2)
-            gl_FragColor = vec4(baseColor.rgb * (0.9 + diffuse * 0.2), baseColor.a);
+            // vec4 litColor = vec4(baseColor.rgb * (0.9 + diffuse * 0.2), baseColor.a);
+            // // ambient light (0.9) + diffuse light (0.2)
+            // gl_FragColor = vec4(baseColor.rgb * (0.9 + diffuse * 0.2), baseColor.a);
+
+            vec3 finalRgb = baseColor.rgb * (0.9 + diffuse * 0.2);
+            gl_FragColor = vec4(finalRgb, baseColor.a * u_alpha);
         }`;
 
         const vs = this.compileShader(vsSource, gl.VERTEX_SHADER);
@@ -355,7 +391,7 @@ class Renderer {
              time += 0.02;
 
             const timeInSeconds = now * 0.0008;
-            const bodyBreathSpeed = 1.5;
+            const bodyBreathSpeed = 0.6;
             const bodyBreathAmount = 0;
             const bodyBreathOffset  = Math.cos(timeInSeconds * bodyBreathSpeed * Math.PI) * bodyBreathAmount;
             const bodyBreathAmountScale = 0.02;
@@ -402,6 +438,7 @@ class Renderer {
             this.environment.updateAnimation();
             this.piplup.updateAnimation(timeInSeconds * 10); // ++; faster
             this.Prinplup.updateAnimation(animationValues);
+            this.Prinplup2.updateAnimation(animationValues);
             this.empoleon.updateAnimation(animationValues);
 
             // 1. Define circle parameters
@@ -497,8 +534,29 @@ class Renderer {
             this.piplup.draw(this.shader, piplupParentMatrix);
 
             const prinplupParentMatrix = LIBS.multiply(this.prinplupModelMatrix, iceParentMatrix);
-            this.Prinplup.draw(this.shader, prinplupParentMatrix, 1
-            ); // false: dance. better implement with sound
+            this.Prinplup.draw(this.shader, prinplupParentMatrix, 0); // yang kecil
+
+            const prinplup2WorldMatrix = LIBS.multiply(this.prinplup2ModelMatrix, iceParentMatrix);
+            this.Prinplup2.draw(this.shader, prinplup2WorldMatrix, 1);
+            const bubbleWorldMatrix = LIBS.multiply(this.bubbleMatrix, iceParentMatrix);
+            // LIBS.translateX(bubbleWorldMatrix, -3);
+            // LIBS.translateY(bubbleWorldMatrix, 5);
+            // LIBS.translateZ(bubbleWorldMatrix, 0);
+            this.chatBubbleNode.updateWorldMatrix(bubbleWorldMatrix);
+
+            const bubbleWorldMatrix2 = LIBS.multiply(this.bubbleMatrix2, iceParentMatrix);
+            this.chatBubbleNode2.updateWorldMatrix(bubbleWorldMatrix2);
+
+            const bubbleWorldMatrix3 = LIBS.multiply(this.bubbleMatrix3, iceParentMatrix);
+            this.chatBubbleNode3.updateWorldMatrix(bubbleWorldMatrix3);
+
+            // gl.depthMask(false);
+            this.chatBubbleNode.draw(this.shader);
+            this.chatBubbleNode2.draw(this.shader);
+            this.chatBubbleNode3.draw(this.shader);
+            gl.depthMask(true);
+            // woi
+            
 
             this.empoleon.updateAnimation({
                 body: Math.sin(time) * 0.1,

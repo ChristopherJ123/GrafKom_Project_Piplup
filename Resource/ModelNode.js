@@ -6,6 +6,7 @@ export class ModelNode {
         this.geometry = geometry; // The drawable geometry
         this.texture = texture;
         this.buffers = null;
+        this.alpha = 1.0;
 
         this.baseMatrix = LIBS.get_I4();  // The "default" pose (set once)
         this.localMatrix = LIBS.get_I4(); // The final transform (base * animation)
@@ -67,6 +68,7 @@ export class ModelNode {
         if (this.buffers) {
             const gl = this.gl;
             gl.uniformMatrix4fv(shader.locations.Mmatrix, false, this.worldMatrix);
+            gl.uniform1f(shader.locations.u_alpha, this.alpha);
 
             gl.bindBuffer(gl.ARRAY_BUFFER, this.buffers.vertex);
 
