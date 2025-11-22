@@ -455,7 +455,7 @@ export class Empoleon {
             { 
                 name: 'fish',
                 parentName: 'leftHand',
-                geom: Geometry.generateSphere(0.25, 0.6, 0.25, 20, 20, C.HEAD), 
+                geom: Geometry.generateSphere(0.1, 0.6, 0.25, 20, 20, C.HEAD),
                 trans: (() => {
                     let m = createTransform(0.3, -0.75, 0.30); // Posisi ikan relatif ke tangan
                     LIBS.rotateX(m, LIBS.degToRad(-90))
